@@ -1,4 +1,4 @@
-﻿namespace ColorPop_JA
+﻿namespace EdgeDetection
 {
     partial class Window
     {

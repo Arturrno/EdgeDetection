@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.7.34302.85
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ColorPop_JA", "ColorPop_JA\ColorPop_JA.csproj", "{C2093D53-385A-4A81-BF0C-D5B9D74B9282}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EdgeDetection", "ColorPop_JA\EdgeDetection.csproj", "{C2093D53-385A-4A81-BF0C-D5B9D74B9282}"
 	ProjectSection(ProjectDependencies) = postProject
 		{0CB45537-1DA3-4BF7-B1C1-3D26D5F434FD} = {0CB45537-1DA3-4BF7-B1C1-3D26D5F434FD}
 		{E264D0D1-B099-4EC2-9D1A-252C043688CD} = {E264D0D1-B099-4EC2-9D1A-252C043688CD}
@@ -11,7 +11,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ColorPop_JA", "ColorPop_JA\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CsDLL", "CharpDll\CsDLL.csproj", "{E264D0D1-B099-4EC2-9D1A-252C043688CD}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AsmDll", "AsmDll\AsmDll.vcxproj", "{0CB45537-1DA3-4BF7-B1C1-3D26D5F434FD}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AsmDLL", "AsmDll\AsmDll.vcxproj", "{0CB45537-1DA3-4BF7-B1C1-3D26D5F434FD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

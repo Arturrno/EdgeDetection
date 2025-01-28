@@ -6,8 +6,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{C2093D53-385A-4A81-BF0C-D5B9D74B9282}</ProjectGuid>
     <OutputType>WinExe</OutputType>
-    <RootNamespace>ColorPop_JA</RootNamespace>
-    <AssemblyName>ColorPop_JA</AssemblyName>
+    <RootNamespace>EdgeDetection</RootNamespace>
+    <AssemblyName>EdgeDetection</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -104,6 +104,7 @@
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
     </Compile>
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">

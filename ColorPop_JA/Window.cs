@@ -12,7 +12,7 @@ using CsharpDll;
 using System.Collections.Generic;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
-namespace ColorPop_JA
+namespace EdgeDetection
 {
     public partial class Window : Form
     {
