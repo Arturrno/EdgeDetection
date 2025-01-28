@@ -1,4 +1,4 @@
-﻿namespace CsharpDll
+﻿namespace CsDLL
 {
     public class EdgeDetectionCS
     {

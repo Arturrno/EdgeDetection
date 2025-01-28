@@ -6,8 +6,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{E264D0D1-B099-4EC2-9D1A-252C043688CD}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>CharpDll</RootNamespace>
-    <AssemblyName>CharpDll</AssemblyName>
+    <RootNamespace>CsDLL</RootNamespace>
+    <AssemblyName>CsDLL</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>

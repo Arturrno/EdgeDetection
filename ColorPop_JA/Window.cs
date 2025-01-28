@@ -7,10 +7,8 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using Image = System.Drawing.Image;
 using System.Diagnostics;
-using File = System.IO.File;
-using CsharpDll;
 using System.Collections.Generic;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
+using CsDLL;
 
 namespace EdgeDetection
 {
@@ -38,7 +36,7 @@ namespace EdgeDetection
             }
         }
 
-        [DllImport(@"C:\Users\artur\source\repos\BraveNewWorldEdgeDetect\x64\Debug\AsmDLL.dll")]
+        [DllImport(@"C:\Users\artur\source\repos\EdgeDetection\x64\Debug\AsmDLL.dll")]
         static extern int EdgeDetect(byte[] redTab, byte[] greenTab, byte[] blueTab, byte[] testTab);
 
         // Metoda konwertująca kolory na odcienie szarości w C#
