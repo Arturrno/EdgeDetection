@@ -1,12 +1,6 @@
-﻿/**
- * Temat: Color pop
- * Bartosz Malinowski semestr 5 2024/2025
- * Biblioteka C#
-*/
-
-namespace CsharpDll
+﻿namespace CsharpDll
 {
-    public class GrayCsharp
+    public class EdgeDetectionCS
     {
         // Metoda do konwersji obrazów do odcieni szarości
         public static void EdgeDetectCS(byte[] tab_red, byte[] tab_green, byte[] tab_blue, byte[] tab_result)

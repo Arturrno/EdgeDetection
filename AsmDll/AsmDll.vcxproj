@@ -19,10 +19,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <MASM Include="ColorPop.asm" />
+    <MASM Include="AsmDLL.asm" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="ColorPop.def" />
+    <None Include="AsmDLL.def" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -124,7 +124,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <ModuleDefinitionFile>ColorPop.def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>AsmDLL.def</ModuleDefinitionFile>
       <NoEntryPoint>true</NoEntryPoint>
     </Link>
   </ItemDefinitionGroup>

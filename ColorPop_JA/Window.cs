@@ -44,8 +44,7 @@ namespace ColorPop_JA
         // Metoda konwertująca kolory na odcienie szarości w C#
         public static void EdgeDetectCS(byte[] tab_red, byte[] tab_green, byte[] tab_blue, ref byte[] tab_result)
         {
-            GrayCsharp.EdgeDetectCS(tab_red, tab_green, tab_blue, tab_result);
-            tab_result = (byte[])tab_red.Clone(); // Klonowanie tablicy czerwonej jako wynik
+            EdgeDetectionCS.EdgeDetectCS(tab_red, tab_green, tab_blue, tab_result);
         }
 
         // Metoda konwertująca kolory na odcienie szarości w ASM
@@ -243,7 +242,7 @@ namespace ColorPop_JA
                 ConvertedPictureBox.SizeMode = PictureBoxSizeMode.StretchImage; // Ustawienie trybu wyświetlania
                 ConvertedPictureBox.Image = ConvertImage; // Ustawienie przetworzonego obrazu
 
-                //MessageBox.Show($"Konwersja zakończona pomyślnie w czasie: {time} ms", "Sukces", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show($"Konwersja zakończona pomyślnie w czasie: {time} ms", "Sukces", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {

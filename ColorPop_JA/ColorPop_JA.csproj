@@ -132,9 +132,9 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\CharpDll\CsharpDll.csproj">
+    <ProjectReference Include="..\CharpDll\CsDLL.csproj">
       <Project>{e264d0d1-b099-4ec2-9d1a-252c043688cd}</Project>
-      <Name>CsharpDll</Name>
+      <Name>CsDLL</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
