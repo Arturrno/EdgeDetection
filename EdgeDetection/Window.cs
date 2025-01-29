@@ -191,7 +191,7 @@ namespace EdgeDetection
                 Bitmap processedImage = EdgeDetectorMain(MyBitmap, maxThreads, library, ref processingTime);
 
                 ConvertedPictureBox.Image = processedImage;
-                ConvertedPictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
+                ConvertedPictureBox.SizeMode = PictureBoxSizeMode.Zoom;
             }
             catch (Exception ex)
             {
@@ -214,7 +214,7 @@ namespace EdgeDetection
 
                     MyBitmap = new Bitmap(fileStream);
                     ImportPictureBox.Image = MyBitmap;
-                    ImportPictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
+                    ImportPictureBox.SizeMode = PictureBoxSizeMode.Zoom;
                 }
                 catch (Exception ex)
                 {
