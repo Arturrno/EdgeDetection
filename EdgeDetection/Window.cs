@@ -10,12 +10,21 @@ using System.Diagnostics;
 using System.Collections.Generic;
 using CsDLL;
 
+
+//
+// TODO:
+// change parsing 8-bit groups to parsing bigger parts of image for blur to work???
+// implement working blur
+
 namespace EdgeDetection
 {
     public partial class Window : Form
     {
         [DllImport(@"C:\Users\artur\source\repos\EdgeDetection\x64\Debug\AsmDLL.dll")]
         static extern int EdgeDetect(byte[] redTab, byte[] greenTab, byte[] blueTab, byte[] testTab);
+
+        [DllImport(@"C:\Users\artur\source\repos\EdgeDetection\x64\Debug\AsmDLL.dll")]
+        static extern void BlurImage(IntPtr inputBuffer, int size, IntPtr outputBuffer);
 
         private Bitmap MyBitmap;
 
@@ -58,6 +67,109 @@ namespace EdgeDetection
         public static void EdgeDetectASM(byte[] redTab, byte[] greenTab, byte[] blueTab, ref byte[] resultTab)
         {
             EdgeDetect(redTab, greenTab, blueTab, resultTab);
+        }
+        public static Bitmap BlurImageASM(Bitmap bitmap)
+        {
+            int width = bitmap.Width;
+            int height = bitmap.Height;
+            int imageSize = width * height; // Grayscale image: 1 byte per pixel
+
+            byte[] inputImage = BitmapToGrayscaleArray(bitmap); // Convert to grayscale
+            byte[] outputImage = new byte[imageSize];           // Allocate output buffer
+
+            // Pin arrays in memory for unmanaged access
+            GCHandle inputHandle = GCHandle.Alloc(inputImage, GCHandleType.Pinned);
+            GCHandle outputHandle = GCHandle.Alloc(outputImage, GCHandleType.Pinned);
+
+            try
+            {
+                IntPtr inputPtr = inputHandle.AddrOfPinnedObject();
+                IntPtr outputPtr = outputHandle.AddrOfPinnedObject();
+
+                MessageBox.Show($"Width: {width}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                // Call the assembly function
+                BlurImage(inputPtr, imageSize, outputPtr);             
+            }
+            finally
+            {
+                // Free allocated memory
+                inputHandle.Free();
+                outputHandle.Free();
+            }
+
+            // Convert the output byte array back to a Bitmap
+            return GrayscaleArrayToBitmap(outputImage, width, height);
+        }
+
+        private static byte[] BitmapToGrayscaleArray(Bitmap bitmap)
+        {
+            int width = bitmap.Width;
+            int height = bitmap.Height;
+            byte[] grayscaleData = new byte[width * height];
+
+            BitmapData bmpData = bitmap.LockBits(
+                new Rectangle(0, 0, width, height),
+                ImageLockMode.ReadOnly,
+                PixelFormat.Format24bppRgb // Assumes input is 24-bit RGB
+            );
+
+            int stride = bmpData.Stride;
+            IntPtr ptr = bmpData.Scan0;
+            byte[] rgbValues = new byte[Math.Abs(stride) * height];
+
+            Marshal.Copy(ptr, rgbValues, 0, rgbValues.Length);
+            bitmap.UnlockBits(bmpData);
+
+            // Convert RGB to grayscale using luminance formula
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    int pixelIndex = (y * stride) + (x * 3);
+                    byte blue = rgbValues[pixelIndex];
+                    byte green = rgbValues[pixelIndex + 1];
+                    byte red = rgbValues[pixelIndex + 2];
+
+                    // Grayscale conversion (using human eye sensitivity)
+                    grayscaleData[y * width + x] = (byte)(0.3 * red + 0.59 * green + 0.11 * blue);
+                }
+            }
+
+            return grayscaleData;
+        }
+
+        private static Bitmap GrayscaleArrayToBitmap(byte[] grayscaleData, int width, int height)
+        {
+            Bitmap bitmap = new Bitmap(width, height, PixelFormat.Format24bppRgb);
+            BitmapData bmpData = bitmap.LockBits(
+                new Rectangle(0, 0, width, height),
+                ImageLockMode.WriteOnly,
+                PixelFormat.Format24bppRgb
+            );
+
+            int stride = bmpData.Stride;
+            byte[] rgbValues = new byte[Math.Abs(stride) * height];
+
+            // Convert grayscale back to RGB format
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    int pixelIndex = (y * stride) + (x * 3);
+                    byte gray = grayscaleData[y * width + x];
+
+                    // Set all channels to grayscale value
+                    rgbValues[pixelIndex] = gray;     // Blue
+                    rgbValues[pixelIndex + 1] = gray; // Green
+                    rgbValues[pixelIndex + 2] = gray; // Red
+                }
+            }
+
+            Marshal.Copy(rgbValues, 0, bmpData.Scan0, rgbValues.Length);
+            bitmap.UnlockBits(bmpData);
+
+            return bitmap;
         }
 
         public Bitmap EdgeDetectorMain(Bitmap bitmap, int maxThreads, byte chosenDllLibrary, ref long time)
@@ -188,7 +300,8 @@ namespace EdgeDetection
             try
             {
                 long processingTime = 0;
-                Bitmap processedImage = EdgeDetectorMain(MyBitmap, maxThreads, library, ref processingTime);
+                //Bitmap processedImage = EdgeDetectorMain(MyBitmap, maxThreads, library, ref processingTime);
+                Bitmap processedImage = BlurImageASM(MyBitmap);
 
                 ConvertedPictureBox.Image = processedImage;
                 ConvertedPictureBox.SizeMode = PictureBoxSizeMode.Zoom;

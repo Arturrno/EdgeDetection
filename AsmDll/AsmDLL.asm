@@ -4,19 +4,29 @@ g dd 0.59f
 b dd 0.11f
 ; Greyscale values for each channel based on human eye sensitivity
 
-.code
-EdgeDetect proc
+KrRed dq 0.750     
+    KgRed dq 0.1    
+    KbRed dq 0.150   
 
-; TODO:
-; change parsing 8-bit groups to parsing bigger parts of image for blur to work???
-; implement working blur
+    KrGreen dq 0.800   
+    KgGreen dq 0.1  
+    KbGreen dq 0.100 
+
+    KrBlue dq 0.800 
+    KgBlue dq 0.1
+    KbBlue dq 0.100 
+
+
+    rounding dq 0.5        
 
 ; Registers :
-; - RCX: pointer to the red channel
-; - RDX: pointer to the green channel
-; - R8:  pointer to the blue channel
-; - R9:  pointer to the output buffer
+    ; - RCX: pointer to the red channel
+    ; - RDX: pointer to the green channel
+    ; - R8:  pointer to the blue channel
+    ; - R9:  pointer to the output buffer
 
+.code
+EdgeDetect proc
     ; Red
     vmovups xmm0, xmmword ptr [rcx]           ; fetch 8 bytes of data (pixels in a group)
     vpmovzxbd ymm0, xmm0                      ; extend bytes to words (16-bit)
@@ -63,46 +73,120 @@ EdgeDetect proc
     pextrb byte ptr [r9+5], xmm0, 4
     pextrb byte ptr [r9+6], xmm0, 8
     pextrb byte ptr [r9+7], xmm0, 12
-
-    ;//////////////////////////////////////////////////////////////////////////////////////
-
-    ; Blur the grayscale image (3x3 box blur)
-        mov r10, r9                           ; Copy grayscale buffer pointer
-        mov r11, r10                          ; Temporary pointer for blurring
-        ;add r11, 1                            ; Start from the second pixel
-
-    ; Loop through the image to apply blur
-        mov ecx, 8                            ; Number of pixels to process
-    BlurLoop:
-        ; Load neighboring pixels, 8 set for tests
-        movzx eax, byte ptr [r10-1]           ; Left pixel
-        movzx ebx, byte ptr [r10+1]           ; Right pixel
-        ;movzx edx, byte ptr [r10-1]           ; Top pixel
-        ;movzx esi, byte ptr [r10+1]           ; Bottom pixel
-
-        ; Add center pixel and its neighbors
-        movzx edi, byte ptr [r10]             ; Center pixel
-        add eax, ebx                          ; Left + Right
-        ;add edx, esi                          ; Top + Bottom
-        ;add eax, edx                          ; Left + Right + Top + Bottom
-        add eax, edi                          ; Add center pixel
-
-        ; Divide by 5 to get the average (simple box blur) ///// tests with dividing 3 pixels in a row
-        ; Use 32-bit division to avoid overflow
-        mov edx, 0                            ; Clear upper 32 bits of dividend
-        mov ebx, 3                            ; Divisor
-        div ebx                               ; eax = (left + right + top + bottom + center) / 5
-
-        ; Store the blurred pixel
-        mov byte ptr [r11], al                ; Store the result in the blurred buffer
-
-        ; Move to the next pixel
-        inc r10
-        inc r11
-        loop BlurLoop
-
-        ; End of procedure
-        ret                                       ; return to the calling location
-
+    
+    ; End of procedure
+    ret
 EdgeDetect endp
+
+BlurImage proc
+       ; rcx - wskanik na bufor wejsciowy 
+       ; rdx - rozmiar danych (liczba pikseli w bajtach)
+       ; r8 - wskaznik na bufor wyjsciowy
+
+    xor rax, rax   
+
+processLoop:
+    cmp rax, rdx
+    jge done       
+
+
+    movzx r13, byte ptr [rcx + rax]      ; R
+    movzx r11, byte ptr [rcx + rax + 1] ; G
+    movzx r12, byte ptr [rcx + rax + 2] ; B
+
+
+    cvtsi2sd xmm0, r13                 
+    movsd xmm1, qword ptr [KrRed]     
+    mulsd xmm0, xmm1                
+
+    cvtsi2sd xmm2, r11               
+    movsd xmm1, qword ptr [KgRed]     
+    mulsd xmm2, xmm1                
+    addsd xmm0, xmm2              
+
+    cvtsi2sd xmm2, r12              
+    movsd xmm1, qword ptr [KbRed]     
+    mulsd xmm2, xmm1                 
+    addsd xmm0, xmm2                
+
+    addsd xmm0, qword ptr [rounding] 
+    cvttsd2si r9d, xmm0           
+
+    mov r12d, 255
+    cmp r9d, r12d
+    jle no_clamp_high_red
+    mov r9d, 255
+no_clamp_high_red:
+    test r9d, r9d
+    jge no_clamp_low_red
+    xor r9d, r9d
+no_clamp_low_red:
+
+
+    cvtsi2sd xmm0, r13              
+    movsd xmm1, qword ptr [KrGreen]  
+    mulsd xmm0, xmm1               
+
+    cvtsi2sd xmm2, r11            
+    movsd xmm1, qword ptr [KgGreen]  
+    mulsd xmm2, xmm1              
+    addsd xmm0, xmm2            
+
+    cvtsi2sd xmm2, r12              
+    movsd xmm1, qword ptr [KbGreen]  
+    mulsd xmm2, xmm1          
+    addsd xmm0, xmm2               
+
+    addsd xmm0, qword ptr [rounding]
+    cvttsd2si r10d, xmm0           
+
+    cmp r10d, r12d
+    jle no_clamp_high_green
+    mov r10d, 255
+no_clamp_high_green:
+    test r10d, r10d
+    jge no_clamp_low_green
+    xor r10d, r10d
+no_clamp_low_green:
+
+
+    cvtsi2sd xmm0, r13                 
+    movsd xmm1, qword ptr [KrBlue]   
+    mulsd xmm0, xmm1                
+
+    cvtsi2sd xmm2, r11               
+    movsd xmm1, qword ptr [KgBlue]  
+    mulsd xmm2, xmm1           
+    addsd xmm0, xmm2                
+
+    cvtsi2sd xmm2, r12              
+    movsd xmm1, qword ptr [KbBlue]   
+    mulsd xmm2, xmm1             
+    addsd xmm0, xmm2              
+
+    addsd xmm0, qword ptr [rounding] 
+    cvttsd2si r11d, xmm0           
+
+    cmp r11d, r12d
+    jle no_clamp_high_blue
+    mov r11d, 255
+no_clamp_high_blue:
+    test r11d, r11d
+    jge no_clamp_low_blue
+    xor r11d, r11d
+no_clamp_low_blue:
+
+    mov byte ptr [r8 + rax], r9b
+    mov byte ptr [r8 + rax + 1], r10b
+    mov byte ptr [r8 + rax + 2], r11b
+
+    add rax, 3
+    jmp processLoop
+
+done:
+    ret
+
+        ret
+BlurImage endp
+
 end
