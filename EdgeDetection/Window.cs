@@ -11,8 +11,6 @@ using System.Collections.Generic;
 using CsDLL;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 
-
-//
 // TODO:
 // change parsing 8-bit groups to parsing bigger parts of image for blur to work???
 // implement working blur
@@ -117,131 +115,79 @@ namespace EdgeDetection
                     else if (chosenDllLibrary == 1)
                         EdgeDetect_ASM(inputChunkPtr, outputChunkPtr, width, endRow - startRow);
                 });
-
                 Marshal.Copy(outputPtr, outputImage, 0, outputImage.Length);
                 Marshal.Copy(outputImage, 0, bitmapData.Scan0, outputImage.Length);
             }
             finally
             {
+                stopwatch.Stop();
+                time = (stopwatch.ElapsedTicks / (TimeSpan.TicksPerMillisecond / 1000));
+
                 outputHandle.Free();
                 bitmap.UnlockBits(bitmapData);
             }
-
-            stopwatch.Stop();
-            time = (stopwatch.ElapsedTicks / (TimeSpan.TicksPerMillisecond / 1000));
-
             return bitmap;
         }
 
 
         public Bitmap EdgeDetectorRGBMain(Bitmap bitmap, int maxThreads, byte chosenDllLibrary, ref long time)
         {
-            Bitmap resultBitmap = new Bitmap(bitmap.Width, bitmap.Height);
-
-            // Groups of size 8 cause only this many can fit into xmm0 register
+            int width = bitmap.Width;
+            int height = bitmap.Height;
             const int groupSize = 8;
-
-            int noOfPixelGroups = (bitmap.Width * bitmap.Height + groupSize - 1) / groupSize;
+            int noOfPixelGroups = (width * height + groupSize - 1) / groupSize;
 
             byte[][] tabOfRedPixelGroups = new byte[noOfPixelGroups][];
             byte[][] tabOfGreenPixelGroups = new byte[noOfPixelGroups][];
             byte[][] tabOfBluePixelGroups = new byte[noOfPixelGroups][];
-
             byte[][] tabOfResultPixelGroups = new byte[noOfPixelGroups][];
 
-            int currPixelIdx = 0; // index for parsing SINGLE 8 pixel group
-            int currGroupIdx = 0; //index for parsing through the multiple pixel groups
-
-            for (int x = 0; x < bitmap.Width; x++)
+            for (int i = 0, x = 0, y = 0; i < noOfPixelGroups; i++)
             {
-                for (int y = 0; y < bitmap.Height; y++)
+                tabOfRedPixelGroups[i] = new byte[groupSize];
+                tabOfGreenPixelGroups[i] = new byte[groupSize];
+                tabOfBluePixelGroups[i] = new byte[groupSize];
+                tabOfResultPixelGroups[i] = new byte[groupSize];
+
+                for (int j = 0; j < groupSize && x < width && y < height; j++)
                 {
                     Color originalPixelColor = bitmap.GetPixel(x, y);
-
-                    if (currPixelIdx == 0)
-                    {
-                        // new tables for every group
-                        tabOfRedPixelGroups[currGroupIdx] = new byte[groupSize];
-                        tabOfGreenPixelGroups[currGroupIdx] = new byte[groupSize];
-                        tabOfBluePixelGroups[currGroupIdx] = new byte[groupSize];
-
-                        tabOfResultPixelGroups[currGroupIdx] = new byte[groupSize];
-                    }
-
-                    // Colours from picture to the pixel colour groupss
-                    tabOfRedPixelGroups[currGroupIdx][currPixelIdx] = originalPixelColor.R;
-                    tabOfGreenPixelGroups[currGroupIdx][currPixelIdx] = originalPixelColor.G;
-                    tabOfBluePixelGroups[currGroupIdx][currPixelIdx] = originalPixelColor.B;
-
-                    tabOfResultPixelGroups[currGroupIdx][currPixelIdx] = 0;
-
-                    currPixelIdx++;
-
-                    if (currPixelIdx > groupSize - 1)
-                    {
-                        currPixelIdx = 0;
-                        currGroupIdx++; // next group
-                    }
-
-                    // Last pixel
-                    if (x == bitmap.Width - 1 && y == bitmap.Height - 1)
-                    {
-                        if (currPixelIdx > 0)
-                        {
-                            Array.Resize(ref tabOfRedPixelGroups[currGroupIdx], currPixelIdx);
-                            Array.Resize(ref tabOfGreenPixelGroups[currGroupIdx], currPixelIdx);
-                            Array.Resize(ref tabOfBluePixelGroups[currGroupIdx], currPixelIdx);
-                            Array.Resize(ref tabOfResultPixelGroups[currGroupIdx], currPixelIdx);
-                        }
-                    }
+                    tabOfRedPixelGroups[i][j] = originalPixelColor.R;
+                    tabOfGreenPixelGroups[i][j] = originalPixelColor.G;
+                    tabOfBluePixelGroups[i][j] = originalPixelColor.B;
+                    y++;
+                    if (y >= height) { y = 0; x++; }
                 }
             }
 
-            var stopwatch = Stopwatch.StartNew();
+            Stopwatch stopwatch = Stopwatch.StartNew();
 
-            var task = Task.Run(() =>
+            Parallel.For(0, noOfPixelGroups, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, i =>
             {
                 if (chosenDllLibrary == 0)
-                {
-                    // Użycie C#
-                    Parallel.For(0, noOfPixelGroups, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, //równoległe przetwarzanie iteracji
-                    x => { EdgeDetectRGB_CS(tabOfRedPixelGroups[x], tabOfGreenPixelGroups[x], tabOfBluePixelGroups[x], ref tabOfResultPixelGroups[x]); });
-                }
-                else if (chosenDllLibrary == 1)
-                {
-                    // Użycie ASM
-                    Parallel.For(0, noOfPixelGroups, new ParallelOptions { MaxDegreeOfParallelism = maxThreads },
-                    x => { EdgeDetectRGB_ASM(tabOfRedPixelGroups[x], tabOfGreenPixelGroups[x], tabOfBluePixelGroups[x], ref tabOfResultPixelGroups[x]); });
-                }
+                    EdgeDetectRGB_CS(tabOfRedPixelGroups[i], tabOfGreenPixelGroups[i], tabOfBluePixelGroups[i], ref tabOfResultPixelGroups[i]);
+                else
+                    EdgeDetectRGB_ASM(tabOfRedPixelGroups[i], tabOfGreenPixelGroups[i], tabOfBluePixelGroups[i], ref tabOfResultPixelGroups[i]);
             });
-            Task.WaitAll(task);
-                   
-            currPixelIdx = 0; // index for parsing SINGLE 8 pixel group
-            currGroupIdx = 0; //index for parsing through the multiple pixel groups
-
-            // Making new image based on the pixel groups from before
-            for (int x = 0; x < bitmap.Width; x++)
-            {
-                for (int y = 0; y < bitmap.Height; y++)
-                {
-                    if (currPixelIdx > groupSize - 1)
-                    {
-                        currPixelIdx = 0;
-                        currGroupIdx++;
-                    }
-
-                    byte grayScale = (byte)tabOfResultPixelGroups[currGroupIdx][currPixelIdx];
-                    Color newPixelColor = Color.FromArgb(grayScale, grayScale, grayScale);
-                    resultBitmap.SetPixel(x, y, newPixelColor);
-                    currPixelIdx++;
-                }
-            }
 
             stopwatch.Stop();
             time = (stopwatch.ElapsedTicks / (TimeSpan.TicksPerMillisecond / 1000));
 
+            Bitmap resultBitmap = new Bitmap(width, height);
+            for (int i = 0, x = 0, y = 0; i < noOfPixelGroups; i++)
+            {
+                for (int j = 0; j < tabOfResultPixelGroups[i].Length && x < width && y < height; j++)
+                {
+                    byte grayScale = tabOfResultPixelGroups[i][j];
+                    resultBitmap.SetPixel(x, y, Color.FromArgb(grayScale, grayScale, grayScale));
+                    y++;
+                    if (y >= height) { y = 0; x++; }
+                }
+            }
+
             return resultBitmap;
         }
+
 
         private void Start_Button_Click(object sender, EventArgs e)
         {
@@ -257,8 +203,8 @@ namespace EdgeDetection
             try
             {
                 long processingTime = 0;
-                Bitmap processedImage = EdgeDetectorRGBMain(MyBitmap, maxThreads, library, ref processingTime);
-                //Bitmap processedImage = EdgeDetectorMain(MyBitmap, maxThreads, library, ref processingTime);
+                //Bitmap processedImage = EdgeDetectorRGBMain(MyBitmap, maxThreads, library, ref processingTime);
+                Bitmap processedImage = EdgeDetectorMain(MyBitmap, maxThreads, library, ref processingTime);
 
                 label5.Text = processingTime + " µs";
                 ConvertedPictureBox.Image = processedImage;
@@ -343,10 +289,11 @@ namespace EdgeDetection
                 for (int i = 0; i < iterations; i++)
                 {
                     long timeCS = 0;
-                    EdgeDetectorRGBMain(MyBitmap, threadCount, 0, ref timeCS); // 0 = C#
+                    //EdgeDetectorRGBMain(MyBitmap, threadCount, 0, ref timeCS); // 0 = C#
+                    EdgeDetectorMain(MyBitmap, threadCount, 0, ref timeCS); // 1 = ASM
                     totalTimeCS += timeCS;
 
-                    //System.Threading.Thread.Sleep(50);
+                    System.Threading.Thread.Sleep(50);
 
                     ImgConvProgressBar.Value++;
                     Application.DoEvents();
@@ -358,10 +305,11 @@ namespace EdgeDetection
                 for (int i = 0; i < iterations; i++)
                 {
                     long timeASM = 0;
-                    EdgeDetectorRGBMain(MyBitmap, threadCount, 1, ref timeASM); // 1 = ASM
+                    //EdgeDetectorRGBMain(MyBitmap, threadCount, 1, ref timeASM); // 1 = ASM
+                    EdgeDetectorMain(MyBitmap, threadCount, 1, ref timeASM); // 1 = ASM
                     totalTimeASM += timeASM;
 
-                    //System.Threading.Thread.Sleep(50);
+                    System.Threading.Thread.Sleep(50);
 
                     ImgConvProgressBar.Value++;
                     Application.DoEvents();
