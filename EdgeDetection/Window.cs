@@ -70,6 +70,11 @@ namespace EdgeDetection
             EdgeDetect(redTab, greenTab, blueTab, resultTab);
         }
 
+        public static void EdgeDetect_CS(IntPtr inputPtr, IntPtr outputPtr, int width, int height)
+        {
+            //placeholder
+        }
+
         public static void EdgeDetect_ASM(IntPtr inputPtr, IntPtr outputPtr, int width, int height)
         {
             EdgeDetect2(inputPtr, outputPtr, width, height);
@@ -78,47 +83,56 @@ namespace EdgeDetection
         {
             int width = bitmap.Width;
             int height = bitmap.Height;
+            int bytesPerPixel = 3; // Assuming 24bpp (RGB format)
+            int stride = width * bytesPerPixel;
+            int chunkHeight = height / maxThreads; // Height of each chunk
 
-            // Lock the bitmap data to access raw pixel data
             BitmapData bitmapData = bitmap.LockBits(
                 new Rectangle(0, 0, width, height),
                 ImageLockMode.ReadWrite,
-                PixelFormat.Format24bppRgb // Assuming RGB format (24bpp) /// IMPORTANT CAUSE WE SKIP ALPHA CHANNEL
+                PixelFormat.Format24bppRgb
             );
 
-            IntPtr inputPtr = bitmapData.Scan0; // Pointer to the bitmap data
-
-            //int imageSize = Math.Abs(bitmapData.Stride) * height; // Calculate total image size in bytes
-            int imageSize = width * height * 3; // Calculate total image size in bytes
-
-            byte[] outputImage = new byte[imageSize];
-
-            // Pin output buffer in memory
+            IntPtr inputPtr = bitmapData.Scan0;
+            byte[] outputImage = new byte[height * stride];
             GCHandle outputHandle = GCHandle.Alloc(outputImage, GCHandleType.Pinned);
+
+            List<Task> tasks = new List<Task>();
+            Stopwatch stopwatch = Stopwatch.StartNew();
 
             try
             {
                 IntPtr outputPtr = outputHandle.AddrOfPinnedObject();
+                Parallel.For(0, maxThreads, threadIdx =>
+                {
+                    int startRow = threadIdx * chunkHeight;
+                    int endRow = (threadIdx == maxThreads - 1) ? height : startRow + chunkHeight;
+                    int offset = startRow * stride;
 
-                // Use the pointer to the bitmap data
-                EdgeDetect_ASM(inputPtr, outputPtr, width, height);
+                    IntPtr inputChunkPtr = IntPtr.Add(inputPtr, offset);
+                    IntPtr outputChunkPtr = IntPtr.Add(outputPtr, offset);
 
-                // Copy the processed pixel data back to the bitmap
-                Marshal.Copy(outputPtr, outputImage, 0, imageSize); // Copy output image buffer to outputImage
+                    if (chosenDllLibrary == 0)
+                        EdgeDetect_CS(inputChunkPtr, outputChunkPtr, width, endRow - startRow);
+                    else if (chosenDllLibrary == 1)
+                        EdgeDetect_ASM(inputChunkPtr, outputChunkPtr, width, endRow - startRow);
+                });
 
-                // Update the bitmap with the blurred image
-                Marshal.Copy(outputImage, 0, bitmapData.Scan0, imageSize); // Copy output back to the bitmap
-
+                Marshal.Copy(outputPtr, outputImage, 0, outputImage.Length);
+                Marshal.Copy(outputImage, 0, bitmapData.Scan0, outputImage.Length);
             }
             finally
             {
-                // Free allocated memory
                 outputHandle.Free();
                 bitmap.UnlockBits(bitmapData);
             }
 
+            stopwatch.Stop();
+            time = (stopwatch.ElapsedTicks / (TimeSpan.TicksPerMillisecond / 1000));
+
             return bitmap;
         }
+
 
         public Bitmap EdgeDetectorRGBMain(Bitmap bitmap, int maxThreads, byte chosenDllLibrary, ref long time)
         {
@@ -185,33 +199,27 @@ namespace EdgeDetection
 
             var stopwatch = Stopwatch.StartNew();
 
-            if (noOfPixelGroups != 0)
+            var task = Task.Run(() =>
             {
-                var task = Task.Run(() =>
+                if (chosenDllLibrary == 0)
                 {
-                    if (chosenDllLibrary == 0)
-                    {
-                        // Użycie C#
-                        Parallel.For(0, noOfPixelGroups, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, //równoległe przetwarzanie iteracji
-                        x => { EdgeDetectRGB_CS(tabOfRedPixelGroups[x], tabOfGreenPixelGroups[x], tabOfBluePixelGroups[x], ref tabOfResultPixelGroups[x]); });
-                    }
-                    else if (chosenDllLibrary == 1)
-                    {
-                        // Użycie ASM
-                        Parallel.For(0, noOfPixelGroups, new ParallelOptions { MaxDegreeOfParallelism = maxThreads },
-                        x => { EdgeDetectRGB_ASM(tabOfRedPixelGroups[x], tabOfGreenPixelGroups[x], tabOfBluePixelGroups[x], ref tabOfResultPixelGroups[x]); });
-                    }
-                });
-                Task.WaitAll(task);
-            }
-
-            stopwatch.Stop(); // Zatrzymanie pomiaru czasu
-            time = (stopwatch.ElapsedTicks / (TimeSpan.TicksPerMillisecond / 1000));           
-
+                    // Użycie C#
+                    Parallel.For(0, noOfPixelGroups, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, //równoległe przetwarzanie iteracji
+                    x => { EdgeDetectRGB_CS(tabOfRedPixelGroups[x], tabOfGreenPixelGroups[x], tabOfBluePixelGroups[x], ref tabOfResultPixelGroups[x]); });
+                }
+                else if (chosenDllLibrary == 1)
+                {
+                    // Użycie ASM
+                    Parallel.For(0, noOfPixelGroups, new ParallelOptions { MaxDegreeOfParallelism = maxThreads },
+                    x => { EdgeDetectRGB_ASM(tabOfRedPixelGroups[x], tabOfGreenPixelGroups[x], tabOfBluePixelGroups[x], ref tabOfResultPixelGroups[x]); });
+                }
+            });
+            Task.WaitAll(task);
+                   
             currPixelIdx = 0; // index for parsing SINGLE 8 pixel group
             currGroupIdx = 0; //index for parsing through the multiple pixel groups
 
-            // Making new image based on the pixel groups from beforei
+            // Making new image based on the pixel groups from before
             for (int x = 0; x < bitmap.Width; x++)
             {
                 for (int y = 0; y < bitmap.Height; y++)
@@ -228,6 +236,9 @@ namespace EdgeDetection
                     currPixelIdx++;
                 }
             }
+
+            stopwatch.Stop();
+            time = (stopwatch.ElapsedTicks / (TimeSpan.TicksPerMillisecond / 1000));
 
             return resultBitmap;
         }
@@ -246,8 +257,8 @@ namespace EdgeDetection
             try
             {
                 long processingTime = 0;
+                Bitmap processedImage = EdgeDetectorRGBMain(MyBitmap, maxThreads, library, ref processingTime);
                 //Bitmap processedImage = EdgeDetectorMain(MyBitmap, maxThreads, library, ref processingTime);
-                Bitmap processedImage = EdgeDetectorMain(MyBitmap, maxThreads, library, ref processingTime);
 
                 label5.Text = processingTime + " µs";
                 ConvertedPictureBox.Image = processedImage;
