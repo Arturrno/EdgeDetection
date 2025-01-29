@@ -17,7 +17,7 @@ namespace EdgeDetection
         [DllImport(@"C:\Users\artur\source\repos\EdgeDetection\x64\Debug\AsmDLL.dll")]
         static extern int EdgeDetect(byte[] redTab, byte[] greenTab, byte[] blueTab, byte[] testTab);
 
-        private Bitmap MyImage;
+        private Bitmap MyBitmap;
 
         public Window()
         {
@@ -49,223 +49,215 @@ namespace EdgeDetection
         }
 
         // C#
-        public static void EdgeDetectCS(byte[] tab_red, byte[] tab_green, byte[] tab_blue, ref byte[] tab_result)
+        public static void EdgeDetectCS(byte[] redTab, byte[] greenTab, byte[] blueTab, ref byte[] resultTab)
         {
-            EdgeDetectionCS.EdgeDetectCS(tab_red, tab_green, tab_blue, tab_result);
+            EdgeDetectionCS.EdgeDetectCS(redTab, greenTab, blueTab, resultTab);
         }
 
         // ASM
-        public static void EdgeDetectASM(byte[] tab_red, byte[] tab_green, byte[] tab_blue, ref byte[] tab_result)
+        public static void EdgeDetectASM(byte[] redTab, byte[] greenTab, byte[] blueTab, ref byte[] resultTab)
         {
-            EdgeDetect(tab_red, tab_green, tab_blue, tab_result);
+            EdgeDetect(redTab, greenTab, blueTab, resultTab);
         }
 
-        public Bitmap EdgeDetectorMain(Bitmap original, int max_threads, byte library, ref long time)
+        public Bitmap EdgeDetectorMain(Bitmap bitmap, int maxThreads, byte chosenDllLibrary, ref long time)
         {
-            Bitmap new_bitmap = new Bitmap(original.Width, original.Height);
+            Bitmap resultBitmap = new Bitmap(bitmap.Width, bitmap.Height);
 
             // Groups of size 8 cause only this many can fit into xmm0 register
             const int groupSize = 8;
 
-            // Obliczenie długości tablic
-            int noOfPixelGroups = (original.Width * original.Height + groupSize - 1) / groupSize;
+            int noOfPixelGroups = (bitmap.Width * bitmap.Height + groupSize - 1) / groupSize;
 
-            // Inicjalizacja tablic dla pikseli
             byte[][] tabOfRedPixelGroups = new byte[noOfPixelGroups][];
             byte[][] tabOfGreenPixelGroups = new byte[noOfPixelGroups][];
             byte[][] tabOfBluePixelGroups = new byte[noOfPixelGroups][];
 
             byte[][] tabOfResultPixelGroups = new byte[noOfPixelGroups][];
 
-            int i = 0; // Indeks do tablicy pikseli
-            int ii = 0; // Indeks do tablicy wynikowej
-            for (int x = 0; x < original.Width; x++)
+            int currPixelIdx = 0; // index for parsing SINGLE 8 pixel group
+            int currGroupIdx = 0; //index for parsing through the multiple pixel groups
+
+            for (int x = 0; x < bitmap.Width; x++)
             {
-                for (int y = 0; y < original.Height; y++)
+                for (int y = 0; y < bitmap.Height; y++)
                 {
-                    Color originalPixelColor = original.GetPixel(x, y); // Pobranie koloru piksela
+                    Color originalPixelColor = bitmap.GetPixel(x, y);
 
-                    // Jeśli kolor wymaga zmiany
-                    if (i == 0)
+                    if (currPixelIdx == 0)
                     {
-                        // Jeśli jest to nowa grupa, inicjalizuj nowe tablice
-                        tabOfRedPixelGroups[ii] = new byte[groupSize];
-                        tabOfGreenPixelGroups[ii] = new byte[groupSize];
-                        tabOfBluePixelGroups[ii] = new byte[groupSize];
+                        // new tables for every group
+                        tabOfRedPixelGroups[currGroupIdx] = new byte[groupSize];
+                        tabOfGreenPixelGroups[currGroupIdx] = new byte[groupSize];
+                        tabOfBluePixelGroups[currGroupIdx] = new byte[groupSize];
 
-                        tabOfResultPixelGroups[ii] = new byte[groupSize];
+                        tabOfResultPixelGroups[currGroupIdx] = new byte[groupSize];
                     }
 
-                    // Przypisanie wartości kolorów do tablic
-                    tabOfRedPixelGroups[ii][i] = originalPixelColor.R;
-                    tabOfGreenPixelGroups[ii][i] = originalPixelColor.G;
-                    tabOfBluePixelGroups[ii][i] = originalPixelColor.B;
+                    // Colours from picture to the pixel colour groupss
+                    tabOfRedPixelGroups[currGroupIdx][currPixelIdx] = originalPixelColor.R;
+                    tabOfGreenPixelGroups[currGroupIdx][currPixelIdx] = originalPixelColor.G;
+                    tabOfBluePixelGroups[currGroupIdx][currPixelIdx] = originalPixelColor.B;
 
-                    tabOfResultPixelGroups[ii][i] = 0;
+                    tabOfResultPixelGroups[currGroupIdx][currPixelIdx] = 0;
 
-                    i++;
+                    currPixelIdx++;
 
-                    // Jeśli mamy już 8 pikseli, przejdź do następnej grupy
-                    if (i > groupSize - 1)
+                    if (currPixelIdx > groupSize - 1)
                     {
-                        i = 0;
-                        ii++; // Zwiększamy indeks grupy
+                        currPixelIdx = 0;
+                        currGroupIdx++; // next group
                     }
 
-                    // Ostatni piksel
-                    if (x == original.Width - 1 && y == original.Height - 1)
+                    // Last pixel
+                    if (x == bitmap.Width - 1 && y == bitmap.Height - 1)
                     {
-                        if (i > 0)
+                        if (currPixelIdx > 0)
                         {
-                            // Upewnij się, że ostatnia grupa jest zapisana, nawet jeśli nie pełna
-                            Array.Resize(ref tabOfRedPixelGroups[ii], i);
-                            Array.Resize(ref tabOfGreenPixelGroups[ii], i);
-                            Array.Resize(ref tabOfBluePixelGroups[ii], i);
-                            Array.Resize(ref tabOfResultPixelGroups[ii], i);
+                            Array.Resize(ref tabOfRedPixelGroups[currGroupIdx], currPixelIdx);
+                            Array.Resize(ref tabOfGreenPixelGroups[currGroupIdx], currPixelIdx);
+                            Array.Resize(ref tabOfBluePixelGroups[currGroupIdx], currPixelIdx);
+                            Array.Resize(ref tabOfResultPixelGroups[currGroupIdx], currPixelIdx);
                         }
                     }
                 }
             }
 
-            Stopwatch stopwatch = new Stopwatch();
-            stopwatch.Start();
+            var stopwatch = Stopwatch.StartNew();
+
             if (noOfPixelGroups != 0)
             {
-                var task1 = Task.Run(() =>
+                var task = Task.Run(() =>
                 {
-                    if (library == 0)
+                    if (chosenDllLibrary == 0)
                     {
                         // Użycie C#
-                        Parallel.For(0, noOfPixelGroups, new ParallelOptions { MaxDegreeOfParallelism = max_threads }, //równoległe przetwarzanie iteracji
+                        Parallel.For(0, noOfPixelGroups, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, //równoległe przetwarzanie iteracji
                         x => { EdgeDetectCS(tabOfRedPixelGroups[x], tabOfGreenPixelGroups[x], tabOfBluePixelGroups[x], ref tabOfResultPixelGroups[x]); });
                     }
-                    else if (library == 1)
+                    else if (chosenDllLibrary == 1)
                     {
                         // Użycie ASM
-                        Parallel.For(0, noOfPixelGroups, new ParallelOptions { MaxDegreeOfParallelism = max_threads },
+                        Parallel.For(0, noOfPixelGroups, new ParallelOptions { MaxDegreeOfParallelism = maxThreads },
                         x => { EdgeDetectASM(tabOfRedPixelGroups[x], tabOfGreenPixelGroups[x], tabOfBluePixelGroups[x], ref tabOfResultPixelGroups[x]); });
                     }
                 });
-                Task.WaitAll(task1); // Czekanie na zakończenie wszystkich zadań
+                Task.WaitAll(task);
             }
 
             stopwatch.Stop(); // Zatrzymanie pomiaru czasu
-            time = (stopwatch.ElapsedTicks / (TimeSpan.TicksPerMillisecond / 1000)); // Obliczenie czasu w ms
+            time = (stopwatch.ElapsedTicks / (TimeSpan.TicksPerMillisecond / 1000));
 
-            label5.Text = (stopwatch.ElapsedTicks / (TimeSpan.TicksPerMillisecond / 1000) + " ms").ToString(); // Wyświetlenie czasu
-            int j = 0; // Indeks do tablicy wynikowej
-            int k = 0; // Indeks do tablicy szarości
+            label5.Text = time + " µs";
 
-            // Tworzenie nowego obrazu na podstawie przetworzonych pikseli
-            for (int x = 0; x < original.Width; x++)
+            currPixelIdx = 0; // index for parsing SINGLE 8 pixel group
+            currGroupIdx = 0; //index for parsing through the multiple pixel groups
+
+            // Making new image based on the pixel groups from beforei
+            for (int x = 0; x < bitmap.Width; x++)
             {
-                for (int y = 0; y < original.Height; y++)
+                for (int y = 0; y < bitmap.Height; y++)
                 {
-                    if (j > groupSize - 1)
+                    if (currPixelIdx > groupSize - 1)
                     {
-                        j = 0; // Resetowanie indeksu
-                        k++; // Przechodzenie do następnej tablicy wynikowej
+                        currPixelIdx = 0;
+                        currGroupIdx++;
                     }
 
-                    byte grayScale = (byte)tabOfResultPixelGroups[k][j]; // Pobranie wartości szarości
-                    Color nc = Color.FromArgb(grayScale, grayScale, grayScale); // Utworzenie koloru szarości
-                    new_bitmap.SetPixel(x, y, nc); // Ustawienie piksela w nowym obrazie
-                    j++; // Przechodzenie do następnego piksela
+                    byte grayScale = (byte)tabOfResultPixelGroups[currGroupIdx][currPixelIdx];
+                    Color newPixelColor = Color.FromArgb(grayScale, grayScale, grayScale);
+                    resultBitmap.SetPixel(x, y, newPixelColor);
+                    currPixelIdx++;
                 }
             }
 
-            return new_bitmap;
+            return resultBitmap;
         }
 
         private void Start_Button_Click(object sender, EventArgs e)
         {
-            if (MyImage == null)
+            if (MyBitmap == null)
             {
                 MessageBox.Show("No image loaded. Please import an image first.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
-            byte library = (byte)(CSharpLibrary.Checked ? 0 : 1); // Wybór biblioteki
+            byte library = (byte)(CSharpLibrary.Checked ? 0 : 1); // Select library
+            int maxThreads = comboBox1.SelectedItem is int threads ? threads : Environment.ProcessorCount; // Ensure valid thread count
 
             try
             {
-                long time = 0; // Zmienna do przechowywania czasu konwersji
-                int max_threads = (int)this.comboBox1.SelectedItem; // Pobranie zaznaczonej liczby wątków
-                Bitmap ConvertImage = EdgeDetectorMain(MyImage, max_threads, library, ref time); // Konwersja obrazu
-                ConvertedPictureBox.SizeMode = PictureBoxSizeMode.StretchImage; // Ustawienie trybu wyświetlania
-                ConvertedPictureBox.Image = ConvertImage; // Ustawienie przetworzonego obrazu
+                long processingTime = 0;
+                Bitmap processedImage = EdgeDetectorMain(MyBitmap, maxThreads, library, ref processingTime);
 
-                MessageBox.Show($"Konwersja zakończona pomyślnie w czasie: {time} ms", "Sukces", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ConvertedPictureBox.Image = processedImage;
+                ConvertedPictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Wystąpił błąd podczas konwersji: {ex.Message}", "Błąd", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Error during conversion: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
         private void Import_Button_Click(object sender, EventArgs e)
         {
-            var fileContent = string.Empty;
-            var filePath = string.Empty;
-
-            this.openFileDialog1.InitialDirectory = "c:\\";
-            this.openFileDialog1.Filter = "bmp files (*.bmp)|*.bmp";
+            openFileDialog1.InitialDirectory = @"C:\";
+            openFileDialog1.Filter = "Bitmap Files (*.bmp)|*.bmp";
 
             if (openFileDialog1.ShowDialog() == DialogResult.OK)
             {
-                filePath = openFileDialog1.FileName;
-
-                var fileStream = openFileDialog1.OpenFile();
-
-                using (StreamReader reader = new StreamReader(fileStream))
+                try
                 {
-                    fileContent = reader.ReadToEnd();
+                    var fileStream = openFileDialog1.OpenFile();
 
-                    if (MyImage != null)
-                    {
-                        MyImage.Dispose();
-                    }
+                    MyBitmap?.Dispose(); // Dispose previous image if exists
 
+                    MyBitmap = new Bitmap(fileStream);
+                    ImportPictureBox.Image = MyBitmap;
                     ImportPictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
-
-                    MyImage = new Bitmap(filePath);
-                    ImportPictureBox.Image = (Image)MyImage;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error loading image: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
         }
 
         private void Save_Button_Click(object sender, EventArgs e)
         {
-            SaveFileDialog saveFileDialog1 = new SaveFileDialog();
-            saveFileDialog1.Filter = "bmp files (*.bmp)|*.bmp"; // Filtr plików
-            saveFileDialog1.Title = "Save an Image File"; // Tytuł okna zapisu
-
-            if (saveFileDialog1.ShowDialog() == DialogResult.OK) // Jeśli użytkownik wybrał plik
+            SaveFileDialog saveDialog = new SaveFileDialog
             {
-                string ext = System.IO.Path.GetExtension(saveFileDialog1.FileName); // Pobranie rozszerzenia pliku
+                Filter = "Bitmap Files (*.bmp)|*.bmp",
+                Title = "Save Image"
+            };
 
-                ConvertedPictureBox.Image.Save(saveFileDialog1.FileName, ImageFormat.Bmp); // Zapisanie obrazu
+            if (saveDialog.ShowDialog() == DialogResult.OK && ConvertedPictureBox.Image != null)
+            {
+                try
+                {
+                    ConvertedPictureBox.Image.Save(saveDialog.FileName, ImageFormat.Bmp);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error saving image: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
         }
 
         private void TestProgramButton_Click(object sender, EventArgs e)
         {
-            if (MyImage == null)
+            if (MyBitmap == null)
             {
                 MessageBox.Show("No image loaded. Please import an image first.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
-            // Create a list to store test results
             var testResults = new List<(int ThreadCount, long TimeForCS, long TimeForASM)>();
 
-            // Get the maximum number of threads (logical processors)
             int maxThreads = Environment.ProcessorCount;
 
-            // Number of test iterations for each thread count
             const int iterations = 5;
 
-            // Initialize the progress bar
             ImgConvProgressBar.Minimum = 0;
             ImgConvProgressBar.Maximum = maxThreads * iterations * 2; // Total test iterations
             ImgConvProgressBar.Value = 0;
@@ -280,7 +272,7 @@ namespace EdgeDetection
                 for (int i = 0; i < iterations; i++)
                 {
                     long timeCS = 0;
-                    EdgeDetectorMain(MyImage, threadCount, 0, ref timeCS); // 0 = C#
+                    EdgeDetectorMain(MyBitmap, threadCount, 0, ref timeCS); // 0 = C#
                     totalTimeCS += timeCS;
 
                     //System.Threading.Thread.Sleep(50);
@@ -295,7 +287,7 @@ namespace EdgeDetection
                 for (int i = 0; i < iterations; i++)
                 {
                     long timeASM = 0;
-                    EdgeDetectorMain(MyImage, threadCount, 1, ref timeASM); // 1 = ASM
+                    EdgeDetectorMain(MyBitmap, threadCount, 1, ref timeASM); // 1 = ASM
                     totalTimeASM += timeASM;
 
                     //System.Threading.Thread.Sleep(50);
@@ -308,7 +300,6 @@ namespace EdgeDetection
                 long avgTimeCS = totalTimeCS / iterations;
                 long avgTimeASM = totalTimeASM / iterations;
 
-                // Store the result
                 testResults.Add((threadCount, avgTimeCS, avgTimeASM));
             }
 
@@ -326,12 +317,10 @@ namespace EdgeDetection
             var workbook = excelApp.Workbooks.Add();
             var worksheet = (Microsoft.Office.Interop.Excel.Worksheet)workbook.Sheets[1];
 
-            // Add headers
             worksheet.Cells[1, 1] = "Thread Count";
-            worksheet.Cells[1, 2] = "Time for C# (ms)";
-            worksheet.Cells[1, 3] = "Time for Assembly (ms)";
+            worksheet.Cells[1, 2] = "Time for C# (µs)";
+            worksheet.Cells[1, 3] = "Time for Assembly (µs)";
 
-            // Add data
             for (int i = 0; i < results.Count; i++)
             {
                 worksheet.Cells[i + 2, 1] = results[i].ThreadCount;
@@ -339,14 +328,11 @@ namespace EdgeDetection
                 worksheet.Cells[i + 2, 3] = results[i].TimeForASM;
             }
 
-            // Auto-fit columns for better readability
             worksheet.Columns.AutoFit();
 
-            // Save the file
             string filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "EdgeDetectionTestResults.xlsx");
             workbook.SaveAs(filePath);
 
-            // Clean up
             workbook.Close();
             excelApp.Quit();
             Marshal.ReleaseComObject(worksheet);

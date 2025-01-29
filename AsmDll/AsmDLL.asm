@@ -49,20 +49,20 @@ EdgeDetect proc
     ; Convert results to integer values
     vcvttps2dq ymm0, ymm0
 
-    ; store processed data to memory
-    pextrb byte ptr [r9+0], xmm0, 0          ; store value for the first pixel (red)
-    pextrb byte ptr [r9+1], xmm0, 4          ; store value for the first pixel (green)
-    pextrb byte ptr [r9+2], xmm0, 8          ; store value for the first pixel (blue)
-    pextrb byte ptr [r9+3], xmm0, 12         ; store value for the second pixel (red)
+    ; store processed data to memory // xmm0 holds 16 bytes, that is 128 bits
+    pextrb byte ptr [r9+0], xmm0, 0
+    pextrb byte ptr [r9+1], xmm0, 4
+    pextrb byte ptr [r9+2], xmm0, 8
+    pextrb byte ptr [r9+3], xmm0, 12
 
     ; rearrange data in ymm0 register to handle the next pixels
     vpermq ymm0, ymm0, 11111110b              ; swap lower and upper parts of the register (at the 128-bit level) cause xmm is half the ymm
 
     ; store processed data for the next pixels
-    pextrb byte ptr [r9+4], xmm0, 0          ; store value for the third pixel (red)
-    pextrb byte ptr [r9+5], xmm0, 4          ; store value for the third pixel (green)
-    pextrb byte ptr [r9+6], xmm0, 8          ; store value for the third pixel (blue)
-    pextrb byte ptr [r9+7], xmm0, 12         ; store value for the fourth pixel (red)
+    pextrb byte ptr [r9+4], xmm0, 0
+    pextrb byte ptr [r9+5], xmm0, 4
+    pextrb byte ptr [r9+6], xmm0, 8
+    pextrb byte ptr [r9+7], xmm0, 12
 
     ;//////////////////////////////////////////////////////////////////////////////////////
 
@@ -87,7 +87,7 @@ EdgeDetect proc
         ;add eax, edx                          ; Left + Right + Top + Bottom
         add eax, edi                          ; Add center pixel
 
-        ; Divide by 5 to get the average (simple box blur) ///// 3 now
+        ; Divide by 5 to get the average (simple box blur) ///// tests with dividing 3 pixels in a row
         ; Use 32-bit division to avoid overflow
         mov edx, 0                            ; Clear upper 32 bits of dividend
         mov ebx, 3                            ; Divisor

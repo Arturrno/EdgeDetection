@@ -130,9 +130,9 @@
             this.label5.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.label5.Location = new System.Drawing.Point(731, 54);
             this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(47, 20);
+            this.label5.Size = new System.Drawing.Size(42, 20);
             this.label5.TabIndex = 27;
-            this.label5.Text = "0 ms";
+            this.label5.Text = "0 µs";
             // 
             // label6
             // 
