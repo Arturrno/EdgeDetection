@@ -9,6 +9,7 @@ using Image = System.Drawing.Image;
 using System.Diagnostics;
 using System.Collections.Generic;
 using CsDLL;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 
 
 //
@@ -24,7 +25,7 @@ namespace EdgeDetection
         static extern int EdgeDetect(byte[] redTab, byte[] greenTab, byte[] blueTab, byte[] testTab);
 
         [DllImport(@"C:\Users\artur\source\repos\EdgeDetection\x64\Debug\AsmDLL.dll")]
-        static extern void EdgeDetect2(IntPtr inputBuffer, IntPtr outputBuffer, int width, int height);
+        static extern void EdgeDetect2(IntPtr inputPtr, IntPtr outputPtr, int width, int height);
 
         private Bitmap MyBitmap;
 
@@ -68,6 +69,11 @@ namespace EdgeDetection
         {
             EdgeDetect(redTab, greenTab, blueTab, resultTab);
         }
+
+        public static void EdgeDetect_ASM(IntPtr inputPtr, IntPtr outputPtr, int width, int height)
+        {
+            EdgeDetect2(inputPtr, outputPtr, width, height);
+        }
         public Bitmap EdgeDetectorMain(Bitmap bitmap, int maxThreads, byte chosenDllLibrary, ref long time)
         {
             int width = bitmap.Width;
@@ -94,7 +100,8 @@ namespace EdgeDetection
             {
                 IntPtr outputPtr = outputHandle.AddrOfPinnedObject();
 
-                EdgeDetect2(inputPtr, outputPtr, width, height); // Use the pointer to the bitmap data
+                // Use the pointer to the bitmap data
+                EdgeDetect_ASM(inputPtr, outputPtr, width, height);
 
                 // Copy the processed pixel data back to the bitmap
                 Marshal.Copy(outputPtr, outputImage, 0, imageSize); // Copy output image buffer to outputImage
@@ -199,9 +206,7 @@ namespace EdgeDetection
             }
 
             stopwatch.Stop(); // Zatrzymanie pomiaru czasu
-            time = (stopwatch.ElapsedTicks / (TimeSpan.TicksPerMillisecond / 1000));
-
-            label5.Text = time + " µs";
+            time = (stopwatch.ElapsedTicks / (TimeSpan.TicksPerMillisecond / 1000));           
 
             currPixelIdx = 0; // index for parsing SINGLE 8 pixel group
             currGroupIdx = 0; //index for parsing through the multiple pixel groups
@@ -244,6 +249,7 @@ namespace EdgeDetection
                 //Bitmap processedImage = EdgeDetectorMain(MyBitmap, maxThreads, library, ref processingTime);
                 Bitmap processedImage = EdgeDetectorMain(MyBitmap, maxThreads, library, ref processingTime);
 
+                label5.Text = processingTime + " µs";
                 ConvertedPictureBox.Image = processedImage;
                 ConvertedPictureBox.SizeMode = PictureBoxSizeMode.Zoom;
             }
