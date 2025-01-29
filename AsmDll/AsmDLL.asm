@@ -4,9 +4,9 @@ g dd 0.59f
 b dd 0.11f
 ; Greyscale values for each channel based on human eye sensitivity
 
-red dq 0.3f 
-green dq 0.59f
-blue dq 0.11f
+redWeight dq 0.3f 
+greenWeight dq 0.59f
+blueWeight dq 0.11f
 rounding dq 0.5        
 
 ; Registers :
@@ -70,13 +70,14 @@ EdgeDetect endp
 
 BlurImage proc
        ; rcx - wskanik na bufor wejsciowy 
-       ; rdx - rozmiar danych (liczba pikseli w bajtach)
-       ; r8 - wskaznik na bufor wyjsciowy
+       ; rdx - wskaznik na bufor wyjsciowy
+       ; r8 - rozmiar danych (liczba pikseli w bajtach)
+
 
     xor rax, rax   
 
 processLoop:
-    cmp rax, rdx
+    cmp rax, r8
     jge done       
 
     movzx r13, byte ptr [rcx + rax]     ; R
@@ -86,7 +87,7 @@ processLoop:
     ;/////////////////////////////////////
 
     cvtsi2sd xmm0, r13                  ; Convert R to float                
-    movsd xmm1, qword ptr [red]         ; Load red channel weight
+    movsd xmm1, qword ptr [redWeight]         ; Load red channel weight
     mulsd xmm0, xmm1                    ; Multiply R by red channel weight
 
     addsd xmm0, qword ptr [rounding]    ; Add rounding value
@@ -95,7 +96,7 @@ processLoop:
     ;/////////////////////////////////////
 
     cvtsi2sd xmm0, r11  
-    movsd xmm1, qword ptr [green]  
+    movsd xmm1, qword ptr [greenWeight]  
     mulsd xmm0, xmm1                            
 
     addsd xmm0, qword ptr [rounding]
@@ -104,7 +105,7 @@ processLoop:
     ;/////////////////////////////////////
 
     cvtsi2sd xmm0, r12              
-    movsd xmm1, qword ptr [blue]   
+    movsd xmm1, qword ptr [blueWeight]   
     mulsd xmm0, xmm1                            
 
     addsd xmm0, qword ptr [rounding] 
@@ -113,15 +114,13 @@ processLoop:
     ;/////////////////////////////////////
 
     ; Add r9b, r10b, and r11b together and store the sum in r13b
-
     add r9b, r10b
     add r9b, r11b
-
     mov r13b, r9b       
 
-    mov byte ptr [r8 + rax], r13b
-    mov byte ptr [r8 + rax + 1], r13b
-    mov byte ptr [r8 + rax + 2], r13b
+    mov byte ptr [rdx + rax], r13b
+    mov byte ptr [rdx + rax + 1], r13b
+    mov byte ptr [rdx + rax + 2], r13b
 
     add rax, 3
     jmp processLoop

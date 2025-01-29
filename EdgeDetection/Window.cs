@@ -24,7 +24,7 @@ namespace EdgeDetection
         static extern int EdgeDetect(byte[] redTab, byte[] greenTab, byte[] blueTab, byte[] testTab);
 
         [DllImport(@"C:\Users\artur\source\repos\EdgeDetection\x64\Debug\AsmDLL.dll")]
-        static extern void BlurImage(IntPtr inputBuffer, int size, IntPtr outputBuffer);
+        static extern void BlurImage(IntPtr inputBuffer, IntPtr outputBuffer, int size);
 
         private Bitmap MyBitmap;
 
@@ -81,7 +81,8 @@ namespace EdgeDetection
             );
 
             IntPtr inputPtr = bitmapData.Scan0; // Pointer to the bitmap data
-            int imageSize = Math.Abs(bitmapData.Stride) * height; // Calculate total image size in bytes
+            //int imageSize = Math.Abs(bitmapData.Stride) * height; // Calculate total image size in bytes
+            int imageSize = width * height * 3; // Calculate total image size in bytes
             byte[] outputImage = new byte[imageSize];
 
             // Pin output buffer in memory
@@ -91,7 +92,9 @@ namespace EdgeDetection
             {
                 IntPtr outputPtr = outputHandle.AddrOfPinnedObject();
 
-                BlurImage(inputPtr, imageSize, outputPtr); // Use the pointer to the bitmap data
+                MessageBox.Show($"Error during conversion: {imageSize}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                BlurImage(inputPtr, outputPtr, imageSize); // Use the pointer to the bitmap data
 
                 // Copy the processed pixel data back to the bitmap
                 Marshal.Copy(outputPtr, outputImage, 0, imageSize); // Copy output image buffer to outputImage
