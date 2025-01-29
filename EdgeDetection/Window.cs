@@ -23,7 +23,7 @@ namespace EdgeDetection
         static extern int EdgeDetect(byte[] redTab, byte[] greenTab, byte[] blueTab, byte[] testTab);
 
         [DllImport(@"C:\Users\artur\source\repos\EdgeDetection\x64\Debug\AsmDLL.dll")]
-        static extern void EdgeDetect2(IntPtr inputPtr, IntPtr outputPtr, int width, int height);
+        static extern void EdgeDetect2(byte[] input, byte[] output, int width, int height);
 
         private Bitmap MyBitmap;
 
@@ -69,15 +69,15 @@ namespace EdgeDetection
         }
 
         // C#
-        public static void EdgeDetect_CS(IntPtr inputPtr, IntPtr outputPtr, int width, int height)
+        public static void EdgeDetect_CS(byte[] input, byte[] output, int width, int height)
         {
-            EdgeDetectionCS.EdgeDetectCS(inputPtr, outputPtr, width, height);
+            EdgeDetectionCS.EdgeDetectCS(input, output, width, height);
         }
 
         // ASM
-        public static void EdgeDetect_ASM(IntPtr inputPtr, IntPtr outputPtr, int width, int height)
+        public static void EdgeDetect_ASM(byte[] input, byte[] output, int width, int height)
         {
-            EdgeDetect2(inputPtr, outputPtr, width, height);
+            EdgeDetect2(input, output, width, height);
         }
 
         public Bitmap EdgeDetectorMain(Bitmap bitmap, int maxThreads, byte chosenDllLibrary, ref long time)
@@ -94,31 +94,39 @@ namespace EdgeDetection
                 PixelFormat.Format24bppRgb
             );
 
-            IntPtr inputPtr = bitmapData.Scan0;
+            byte[] inputImage = new byte[height * stride];
             byte[] outputImage = new byte[height * stride];
-            GCHandle outputHandle = GCHandle.Alloc(outputImage, GCHandleType.Pinned);
+
+            // Copy the bitmap data to the inputImage array
+            Marshal.Copy(bitmapData.Scan0, inputImage, 0, inputImage.Length);
 
             List<Task> tasks = new List<Task>();
             Stopwatch stopwatch = Stopwatch.StartNew();
 
             try
             {
-                IntPtr outputPtr = outputHandle.AddrOfPinnedObject();
                 Parallel.For(0, maxThreads, threadIdx =>
                 {
                     int startRow = threadIdx * chunkHeight;
                     int endRow = (threadIdx == maxThreads - 1) ? height : startRow + chunkHeight;
-                    int offset = startRow * stride;
+                    int chunkSize = (endRow - startRow) * stride;
 
-                    IntPtr inputChunkPtr = IntPtr.Add(inputPtr, offset);
-                    IntPtr outputChunkPtr = IntPtr.Add(outputPtr, offset);
+                    byte[] inputChunk = new byte[chunkSize];
+                    byte[] outputChunk = new byte[chunkSize];
+
+                    // Copy the chunk from the inputImage to inputChunk
+                    Buffer.BlockCopy(inputImage, startRow * stride, inputChunk, 0, chunkSize);
 
                     if (chosenDllLibrary == 0)
-                        EdgeDetect_CS(inputChunkPtr, outputChunkPtr, width, endRow - startRow);
+                        EdgeDetect_CS(inputChunk, outputChunk, width, endRow - startRow);
                     else if (chosenDllLibrary == 1)
-                        EdgeDetect_ASM(inputChunkPtr, outputChunkPtr, width, endRow - startRow);
+                        EdgeDetect_ASM(inputChunk, outputChunk, width, endRow - startRow);
+
+                    // Copy the processed chunk back to the outputImage
+                    Buffer.BlockCopy(outputChunk, 0, outputImage, startRow * stride, chunkSize);
                 });
-                Marshal.Copy(outputPtr, outputImage, 0, outputImage.Length);
+
+                // Copy the outputImage back to the bitmap
                 Marshal.Copy(outputImage, 0, bitmapData.Scan0, outputImage.Length);
             }
             finally
@@ -126,7 +134,6 @@ namespace EdgeDetection
                 stopwatch.Stop();
                 time = (stopwatch.ElapsedTicks / (TimeSpan.TicksPerMillisecond / 1000));
 
-                outputHandle.Free();
                 bitmap.UnlockBits(bitmapData);
             }
             return bitmap;

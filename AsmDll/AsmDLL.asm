@@ -71,80 +71,220 @@ EdgeDetect endp
     ; /////////////////////////////////////////////////////////////////////////////////////////
 
 EdgeDetect2 proc
-        ; rcx - wskanik na bufor wejsciowy 
-        ; rdx - wskaznik na bufor wyjsciowy
-        ; r8 - szerokosc
-        ; r9 - wysokosc
+        ; rcx - pointer to input buffer
+        ; rdx - pointer to output buffer
+        ; r8 - width
+        ; r9 - height
 
-        ; Multiplying r8 * r9 * 3 to get rough amount of color pixels in the image
-        xor rax, rax   ; Zeroing rax, rax is the current pixel index
+        ; Save registers
+        push rbp
+        push rbx
+        push rsi
+        push rdi
+        push r12
+        push r13
+        push r14
+        push r15
+
+        ; Grayscale the input image
+        call Grayscale
+
+        ; Perform blur on the grayscale image
+        ;call Blur
+
+        ; Restore registers
+        pop r15
+        pop r14
+        pop r13
+        pop r12
+        pop rdi
+        pop rsi
+        pop rbx
+        pop rbp
+
+        ret
+
+Grayscale:
+        ; Grayscale the input image
+        ; Input: rcx = input buffer, rdx = output buffer, r8 = width, r9 = height
+        ; Output: Grayscale image stored in the output buffer
+
+        ; Calculate total number of pixels (width * height * 3)
         imul r9, r8
         imul r9, 3
         mov r13, r9
 
-        ; /////////////////////////////////////
-        ; Grayscaling the image
+        xor rax, rax   ; rax = current pixel index
 
     processLoop:
         cmp rax, r13
-        jge doneGrayscale       
+        jge doneGrayscale
 
-        movzx r10, byte ptr [rcx + rax]     ; Load R into r10
-        movzx r11, byte ptr [rcx + rax + 1] ; Load G into r11
-        movzx r12, byte ptr [rcx + rax + 2] ; Load B into r12 
+        ; Load RGB values
+        movzx r10, byte ptr [rcx + rax]     ; R
+        movzx r11, byte ptr [rcx + rax + 1] ; G
+        movzx r12, byte ptr [rcx + rax + 2] ; B
 
-        ; ///////////////////////////////////// R
+        ; Convert to grayscale using weighted sum
+        cvtsi2sd xmm0, r10                  ; R to float
+        mulsd xmm0, qword ptr [redWeight]   ; R * 0.299
 
-        cvtsi2sd xmm0, r10                  ; Convert R to float                
-        movsd xmm1, qword ptr [redWeight]   ; Load red channel weight
-        mulsd xmm0, xmm1                    ; Multiply R by red channel weight
+        cvtsi2sd xmm1, r11                  ; G to float
+        mulsd xmm1, qword ptr [greenWeight] ; G * 0.587
 
+        cvtsi2sd xmm2, r12                  ; B to float
+        mulsd xmm2, qword ptr [blueWeight]  ; B * 0.114
+
+        addsd xmm0, xmm1                    ; R + G
+        addsd xmm0, xmm2                    ; R + G + B
+
+        ; Round and convert back to integer
         addsd xmm0, qword ptr [rounding]    ; Add rounding value
-        cvttsd2si r10d, xmm0                ; Convert into integer           
+        cvttsd2si r10d, xmm0                ; Convert to integer
 
-        ; ///////////////////////////////////// G
+        ; Store grayscale value in output buffer
+        mov byte ptr [rdx + rax], r10b      ; R
+        mov byte ptr [rdx + rax + 1], r10b  ; G
+        mov byte ptr [rdx + rax + 2], r10b  ; B
 
-        cvtsi2sd xmm0, r11  
-        movsd xmm1, qword ptr [greenWeight]  
-        mulsd xmm0, xmm1                            
-
-        addsd xmm0, qword ptr [rounding]
-        cvttsd2si r11d, xmm0           
-
-        ; ///////////////////////////////////// B
-
-        cvtsi2sd xmm0, r12              
-        movsd xmm1, qword ptr [blueWeight]   
-        mulsd xmm0, xmm1                            
-
-        addsd xmm0, qword ptr [rounding] 
-        cvttsd2si r12d, xmm0           
-
-        ; ///////////////////////////////////// 
-        ; Summing up the values back to buffers
-
-        ; Add r10b, r11b, and r12b together
-        add r10b, r11b
-        add r10b, r12b
-
-        ; Assigning the result to the output buffer
-        mov byte ptr [rdx + rax], r10b
-        mov byte ptr [rdx + rax + 1], r10b
-        mov byte ptr [rdx + rax + 2], r10b
-
-        ; Assigning the result to the input buffer in order to blur image
-        mov byte ptr [rcx + rax], r10b
-        mov byte ptr [rcx + rax + 1], r10b
-        mov byte ptr [rcx + rax + 2], r10b
-
+        ; Move to next pixel
         add rax, 3
         jmp processLoop
 
     doneGrayscale:
+        ret
 
-       
+        ; ///////////////////////////////////////
+        ; Bluring the image
+    
+    Blur:
+        ; Blur the grayscale image
+        ; Input: rcx = input buffer, rdx = output buffer, r8 = width, r9 = height
+        ; Output: Blurred image stored in the output buffer
 
-    ret
+        ; Calculate the number of bytes per row (stride)
+        mov r10, r8
+        imul r10, 3  ; r10 = width * 3 (bytes per row)
+
+        ; Initialize loop counters
+        mov r11, r9  ; r11 = height (outer loop counter)
+        sub r11, 2   ; Avoid edge pixels
+
+        mov r12, r8  ; r12 = width (inner loop counter)
+        sub r12, 2   ; Avoid edge pixels
+
+        ; Initialize pixel index
+        xor rax, rax ; rax = current row index (in bytes)
+
+    outerLoop:
+        cmp rax, r11
+        jge doneBlur
+
+        ; Initialize inner loop counter
+        xor rbx, rbx ; rbx = current column index (in bytes)
+
+    innerLoop:
+        cmp rbx, r12
+        jge nextRow
+
+        ; Calculate the sum of the 3x3 neighborhood
+        xor r13, r13 ; r13 = sum of the neighborhood
+
+        ; Top-left pixel
+        mov r14, rax
+        add r14, rbx
+        movzx r15, byte ptr [rcx + r14]
+        add r13, r15
+
+        ; Top-center pixel
+        mov r14, rax
+        add r14, rbx
+        add r14, 3
+        movzx r15, byte ptr [rcx + r14]
+        add r13, r15
+
+        ; Top-right pixel
+        mov r14, rax
+        add r14, rbx
+        add r14, 6
+        movzx r15, byte ptr [rcx + r14]
+        add r13, r15
+
+        ; Middle-left pixel
+        mov r14, rax
+        add r14, rbx
+        add r14, r10
+        movzx r15, byte ptr [rcx + r14]
+        add r13, r15
+
+        ; Middle-center pixel
+        mov r14, rax
+        add r14, rbx
+        add r14, r10
+        add r14, 3
+        movzx r15, byte ptr [rcx + r14]
+        add r13, r15
+
+        ; Middle-right pixel
+        mov r14, rax
+        add r14, rbx
+        add r14, r10
+        add r14, 6
+        movzx r15, byte ptr [rcx + r14]
+        add r13, r15
+
+        ; Bottom-left pixel
+        mov r14, rax
+        add r14, rbx
+        add r14, r10
+        add r14, r10
+        movzx r15, byte ptr [rcx + r14]
+        add r13, r15
+
+        ; Bottom-center pixel
+        mov r14, rax
+        add r14, rbx
+        add r14, r10
+        add r14, r10
+        add r14, 3
+        movzx r15, byte ptr [rcx + r14]
+        add r13, r15
+
+        ; Bottom-right pixel
+        mov r14, rax
+        add r14, rbx
+        add r14, r10
+        add r14, r10
+        add r14, 6
+        movzx r15, byte ptr [rcx + r14]
+        add r13, r15
+
+        ; Calculate the average (divide by 9)
+        mov rax, r13
+        mov rcx, 9
+        xor rdx, rdx
+        div rcx
+        mov r13, rax
+
+        ; Store the blurred pixel in the output buffer
+        mov r14, rax
+        add r14, rbx
+        add r14, r10
+        add r14, 3
+        mov byte ptr [rdx + r14], r13b
+
+        ; Move to the next column
+        add rbx, 3
+        jmp innerLoop
+
+    nextRow:
+        ; Move to the next row
+        add rax, r10
+        jmp outerLoop
+
+    doneBlur:
+        ret
+
 EdgeDetect2 endp
 
 end

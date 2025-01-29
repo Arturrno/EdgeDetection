@@ -21,22 +21,17 @@ namespace CsDLL
             }
         }
 
-        public static void EdgeDetectCS(IntPtr inputPtr, IntPtr outputPtr, int width, int height)
+        public static void EdgeDetectCS(byte[] input, byte[] output, int width, int height)
         {
-            byte[] buffer = new byte[height * width * 3];
-            Marshal.Copy(inputPtr, buffer, 0, buffer.Length);
-
-            for (int i = 0; i < buffer.Length; i += 3)
+            for (int i = 0; i < input.Length; i += 3)
             {
-                byte r = buffer[i + 2];
-                byte g = buffer[i + 1];
-                byte b = buffer[i];
+                byte r = input[i + 2];
+                byte g = input[i + 1];
+                byte b = input[i];
 
                 byte gray = (byte)(r * 0.3 + g * 0.59 + b * 0.11);
-                buffer[i] = buffer[i + 1] = buffer[i + 2] = gray; // Set grayscale value
+                output[i] = output[i + 1] = output[i + 2] = gray; // Set grayscale value
             }
-
-            Marshal.Copy(buffer, 0, outputPtr, buffer.Length);
         }
     }
 }
