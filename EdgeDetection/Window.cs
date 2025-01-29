@@ -39,19 +39,18 @@ namespace EdgeDetection
         [DllImport(@"C:\Users\artur\source\repos\EdgeDetection\x64\Debug\AsmDLL.dll")]
         static extern int EdgeDetect(byte[] redTab, byte[] greenTab, byte[] blueTab, byte[] testTab);
 
-        // Metoda konwertująca kolory na odcienie szarości w C#
+        // C#
         public static void EdgeDetectCS(byte[] tab_red, byte[] tab_green, byte[] tab_blue, ref byte[] tab_result)
         {
             EdgeDetectionCS.EdgeDetectCS(tab_red, tab_green, tab_blue, tab_result);
         }
 
-        // Metoda konwertująca kolory na odcienie szarości w ASM
+        // ASM
         public static void EdgeDetectASM(byte[] tab_red, byte[] tab_green, byte[] tab_blue, ref byte[] tab_result)
         {
-            EdgeDetect(tab_red, tab_green, tab_blue, tab_result); // Wywołanie funkcji z biblioteki ASM
+            EdgeDetect(tab_red, tab_green, tab_blue, tab_result);
         }
 
-        // Metoda do tworzenia obrazu w odcieniach szarości
         public Bitmap EdgeDetectorMain(Bitmap original, int max_threads, byte library, ref long time)
         {
             Bitmap new_bitmap = new Bitmap(original.Width, original.Height);
