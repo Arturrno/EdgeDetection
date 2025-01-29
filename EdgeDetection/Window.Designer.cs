@@ -191,7 +191,7 @@
             this.Controls.Add(this.ASMLibrary);
             this.Controls.Add(this.ConvertedPictureBox);
             this.Name = "Window";
-            this.Text = "ColorPop";
+            this.Text = "EdgeDetect";
             this.Load += new System.EventHandler(this.Window_Load);
             ((System.ComponentModel.ISupportInitialize)(this.ConvertedPictureBox)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.ImportPictureBox)).EndInit();

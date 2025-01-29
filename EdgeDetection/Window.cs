@@ -14,6 +14,11 @@ namespace EdgeDetection
 {
     public partial class Window : Form
     {
+        [DllImport(@"C:\Users\artur\source\repos\EdgeDetection\x64\Debug\AsmDLL.dll")]
+        static extern int EdgeDetect(byte[] redTab, byte[] greenTab, byte[] blueTab, byte[] testTab);
+
+        private Bitmap MyImage;
+
         public Window()
         {
             InitializeComponent();
@@ -22,22 +27,26 @@ namespace EdgeDetection
         private void Window_Load(object sender, EventArgs e)
         {
             comboBox1.Items.Clear();
-            int maxValue = Environment.ProcessorCount;
+            int maxThreads = Environment.ProcessorCount;
 
-            while (maxValue >= 1)
+            int threadCount = 1;
+            while (threadCount <= maxThreads)
             {
-                comboBox1.Items.Add(maxValue);
-                maxValue /= 2; // Divide by 2 to get the next value
+                comboBox1.Items.Add(threadCount);
+                threadCount *= 2;
             }
+
+            if (maxThreads > 0 && (maxThreads & (maxThreads - 1)) != 0)
+            {
+                comboBox1.Items.Add(maxThreads);
+            }
+
 
             if (comboBox1.Items.Count > 0)
             {
-                comboBox1.SelectedIndex = 0; // Select the first item by default
+                comboBox1.SelectedIndex = 0;
             }
         }
-
-        [DllImport(@"C:\Users\artur\source\repos\EdgeDetection\x64\Debug\AsmDLL.dll")]
-        static extern int EdgeDetect(byte[] redTab, byte[] greenTab, byte[] blueTab, byte[] testTab);
 
         // C#
         public static void EdgeDetectCS(byte[] tab_red, byte[] tab_green, byte[] tab_blue, ref byte[] tab_result)
@@ -165,62 +174,9 @@ namespace EdgeDetection
                 }
             }
 
-            return new_bitmap; // Zwrócenie nowego obrazu
+            return new_bitmap;
         }
 
-        private Bitmap MyImage; // Zmienna do przechowywania zaimportowanego obrazu
-
-        // Metoda obsługująca przycisk zapisu
-        private void Save_Button_Click(object sender, EventArgs e)
-        {
-            SaveFileDialog saveFileDialog1 = new SaveFileDialog();
-            saveFileDialog1.Filter = "bmp files (*.bmp)|*.bmp"; // Filtr plików
-            saveFileDialog1.Title = "Save an Image File"; // Tytuł okna zapisu
-
-            if (saveFileDialog1.ShowDialog() == DialogResult.OK) // Jeśli użytkownik wybrał plik
-            {
-                string ext = System.IO.Path.GetExtension(saveFileDialog1.FileName); // Pobranie rozszerzenia pliku
-
-                ConvertedPictureBox.Image.Save(saveFileDialog1.FileName, ImageFormat.Bmp); // Zapisanie obrazu
-            }
-        }
-
-        // Metoda obsługująca przycisk importu
-        private void Import_Button_Click(object sender, EventArgs e)
-        {
-            var fileContent = string.Empty; // Zmienna do przechowywania zawartości pliku
-            var filePath = string.Empty; // Zmienna do przechowywania ścieżki pliku
-
-            this.openFileDialog1.InitialDirectory = "c:\\"; // Ustawienie katalogu początkowego
-            this.openFileDialog1.Filter = "bmp files (*.bmp)|*.bmp"; // Filtr plików
-
-            if (openFileDialog1.ShowDialog() == DialogResult.OK) // Jeśli użytkownik wybrał plik
-            {
-                // Pobranie ścieżki wybranego pliku
-                filePath = openFileDialog1.FileName;
-
-                // Odczytanie zawartości pliku do strumienia
-                var fileStream = openFileDialog1.OpenFile();
-
-                using (StreamReader reader = new StreamReader(fileStream))
-                {
-                    fileContent = reader.ReadToEnd(); // Odczytanie zawartości pliku
-
-                    if (MyImage != null)
-                    {
-                        MyImage.Dispose(); // Zwolnienie zasobów obrazu
-                    }
-
-                    // Rozciągnięcie obrazu, aby dopasować go do PictureBox
-                    ImportPictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
-
-                    MyImage = new Bitmap(filePath); // Utworzenie nowego obiektu Bitmap z wybranego pliku
-                    ImportPictureBox.Image = (Image)MyImage; // Ustawienie obrazu w PictureBox
-                }
-            }
-        }
-
-        // Metoda obsługująca przycisk startu konwersji
         private void Start_Button_Click(object sender, EventArgs e)
         {
             if (MyImage == null)
@@ -247,9 +203,49 @@ namespace EdgeDetection
             }
         }
 
-        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
+        private void Import_Button_Click(object sender, EventArgs e)
         {
-            int selectedValue = (int)comboBox1.SelectedItem;
+            var fileContent = string.Empty;
+            var filePath = string.Empty;
+
+            this.openFileDialog1.InitialDirectory = "c:\\";
+            this.openFileDialog1.Filter = "bmp files (*.bmp)|*.bmp";
+
+            if (openFileDialog1.ShowDialog() == DialogResult.OK)
+            {
+                filePath = openFileDialog1.FileName;
+
+                var fileStream = openFileDialog1.OpenFile();
+
+                using (StreamReader reader = new StreamReader(fileStream))
+                {
+                    fileContent = reader.ReadToEnd();
+
+                    if (MyImage != null)
+                    {
+                        MyImage.Dispose();
+                    }
+
+                    ImportPictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
+
+                    MyImage = new Bitmap(filePath);
+                    ImportPictureBox.Image = (Image)MyImage;
+                }
+            }
+        }
+
+        private void Save_Button_Click(object sender, EventArgs e)
+        {
+            SaveFileDialog saveFileDialog1 = new SaveFileDialog();
+            saveFileDialog1.Filter = "bmp files (*.bmp)|*.bmp"; // Filtr plików
+            saveFileDialog1.Title = "Save an Image File"; // Tytuł okna zapisu
+
+            if (saveFileDialog1.ShowDialog() == DialogResult.OK) // Jeśli użytkownik wybrał plik
+            {
+                string ext = System.IO.Path.GetExtension(saveFileDialog1.FileName); // Pobranie rozszerzenia pliku
+
+                ConvertedPictureBox.Image.Save(saveFileDialog1.FileName, ImageFormat.Bmp); // Zapisanie obrazu
+            }
         }
 
         private void TestProgramButton_Click(object sender, EventArgs e)
@@ -287,7 +283,7 @@ namespace EdgeDetection
                     EdgeDetectorMain(MyImage, threadCount, 0, ref timeCS); // 0 = C#
                     totalTimeCS += timeCS;
 
-                    System.Threading.Thread.Sleep(50);
+                    //System.Threading.Thread.Sleep(50);
 
                     ImgConvProgressBar.Value++;
                     Application.DoEvents();
@@ -302,7 +298,7 @@ namespace EdgeDetection
                     EdgeDetectorMain(MyImage, threadCount, 1, ref timeASM); // 1 = ASM
                     totalTimeASM += timeASM;
 
-                    System.Threading.Thread.Sleep(50);
+                    //System.Threading.Thread.Sleep(50);
 
                     ImgConvProgressBar.Value++;
                     Application.DoEvents();
@@ -356,6 +352,11 @@ namespace EdgeDetection
             Marshal.ReleaseComObject(worksheet);
             Marshal.ReleaseComObject(workbook);
             Marshal.ReleaseComObject(excelApp);
+        }
+
+        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            int selectedValue = (int)comboBox1.SelectedItem;
         }
     }
 }
