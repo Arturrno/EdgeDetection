@@ -70,7 +70,7 @@ EdgeDetect endp
 
     ; /////////////////////////////////////////////////////////////////////////////////////////
 
-BlurImage proc
+EdgeDetect2 proc
         ; rcx - wskanik na bufor wejsciowy 
         ; rdx - wskaznik na bufor wyjsciowy
         ; r8 - szerokosc
@@ -180,14 +180,14 @@ BlurImage proc
         ; movzx eax, byte ptr [rbx + rcx - 3]       ; Left pixel
         ; movzx ebx, byte ptr [rbx + rcx + 3]       ; Right pixel
      
-        ;bottom and top pixels go here
+        ; bottom and top pixels go here
 
         ; movzx edi, byte ptr [rbx + rcx]           ; Center pixel
 
         ; Compute box blur: (left + right + top + bottom + center) / 5
         ; add eax, ebx
-        ;top add eax, edx
-        ;bot add eax, esi
+        ; top add eax, edx
+        ; bot add eax, esi
         ; add eax, edi
         ; mov ebx, 3
         ; div ebx   ; eax = blurred pixel value
@@ -213,6 +213,6 @@ BlurImage proc
         pop rdi
         pop rbx
     ret
-BlurImage endp
+EdgeDetect2 endp
 
 end

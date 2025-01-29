@@ -24,7 +24,7 @@ namespace EdgeDetection
         static extern int EdgeDetect(byte[] redTab, byte[] greenTab, byte[] blueTab, byte[] testTab);
 
         [DllImport(@"C:\Users\artur\source\repos\EdgeDetection\x64\Debug\AsmDLL.dll")]
-        static extern void BlurImage(IntPtr inputBuffer, IntPtr outputBuffer, int width, int height);
+        static extern void EdgeDetect2(IntPtr inputBuffer, IntPtr outputBuffer, int width, int height);
 
         private Bitmap MyBitmap;
 
@@ -58,17 +58,17 @@ namespace EdgeDetection
         }
 
         // C#
-        public static void EdgeDetectCS(byte[] redTab, byte[] greenTab, byte[] blueTab, ref byte[] resultTab)
+        public static void EdgeDetectRGB_CS(byte[] redTab, byte[] greenTab, byte[] blueTab, ref byte[] resultTab)
         {
             EdgeDetectionCS.EdgeDetectCS(redTab, greenTab, blueTab, resultTab);
         }
 
         // ASM
-        public static void EdgeDetectASM(byte[] redTab, byte[] greenTab, byte[] blueTab, ref byte[] resultTab)
+        public static void EdgeDetectRGB_ASM(byte[] redTab, byte[] greenTab, byte[] blueTab, ref byte[] resultTab)
         {
             EdgeDetect(redTab, greenTab, blueTab, resultTab);
         }
-        public static Bitmap BlurImageASM(Bitmap bitmap)
+        public Bitmap EdgeDetectorMain(Bitmap bitmap, int maxThreads, byte chosenDllLibrary, ref long time)
         {
             int width = bitmap.Width;
             int height = bitmap.Height;
@@ -94,9 +94,7 @@ namespace EdgeDetection
             {
                 IntPtr outputPtr = outputHandle.AddrOfPinnedObject();
 
-                MessageBox.Show($"Image size: {imageSize}", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-                BlurImage(inputPtr, outputPtr, width, height); // Use the pointer to the bitmap data
+                EdgeDetect2(inputPtr, outputPtr, width, height); // Use the pointer to the bitmap data
 
                 // Copy the processed pixel data back to the bitmap
                 Marshal.Copy(outputPtr, outputImage, 0, imageSize); // Copy output image buffer to outputImage
@@ -115,7 +113,7 @@ namespace EdgeDetection
             return bitmap;
         }
 
-        public Bitmap EdgeDetectorMain(Bitmap bitmap, int maxThreads, byte chosenDllLibrary, ref long time)
+        public Bitmap EdgeDetectorRGBMain(Bitmap bitmap, int maxThreads, byte chosenDllLibrary, ref long time)
         {
             Bitmap resultBitmap = new Bitmap(bitmap.Width, bitmap.Height);
 
@@ -188,13 +186,13 @@ namespace EdgeDetection
                     {
                         // Użycie C#
                         Parallel.For(0, noOfPixelGroups, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, //równoległe przetwarzanie iteracji
-                        x => { EdgeDetectCS(tabOfRedPixelGroups[x], tabOfGreenPixelGroups[x], tabOfBluePixelGroups[x], ref tabOfResultPixelGroups[x]); });
+                        x => { EdgeDetectRGB_CS(tabOfRedPixelGroups[x], tabOfGreenPixelGroups[x], tabOfBluePixelGroups[x], ref tabOfResultPixelGroups[x]); });
                     }
                     else if (chosenDllLibrary == 1)
                     {
                         // Użycie ASM
                         Parallel.For(0, noOfPixelGroups, new ParallelOptions { MaxDegreeOfParallelism = maxThreads },
-                        x => { EdgeDetectASM(tabOfRedPixelGroups[x], tabOfGreenPixelGroups[x], tabOfBluePixelGroups[x], ref tabOfResultPixelGroups[x]); });
+                        x => { EdgeDetectRGB_ASM(tabOfRedPixelGroups[x], tabOfGreenPixelGroups[x], tabOfBluePixelGroups[x], ref tabOfResultPixelGroups[x]); });
                     }
                 });
                 Task.WaitAll(task);
@@ -244,7 +242,7 @@ namespace EdgeDetection
             {
                 long processingTime = 0;
                 //Bitmap processedImage = EdgeDetectorMain(MyBitmap, maxThreads, library, ref processingTime);
-                Bitmap processedImage = BlurImageASM(MyBitmap);
+                Bitmap processedImage = EdgeDetectorMain(MyBitmap, maxThreads, library, ref processingTime);
 
                 ConvertedPictureBox.Image = processedImage;
                 ConvertedPictureBox.SizeMode = PictureBoxSizeMode.Zoom;
@@ -328,7 +326,7 @@ namespace EdgeDetection
                 for (int i = 0; i < iterations; i++)
                 {
                     long timeCS = 0;
-                    EdgeDetectorMain(MyBitmap, threadCount, 0, ref timeCS); // 0 = C#
+                    EdgeDetectorRGBMain(MyBitmap, threadCount, 0, ref timeCS); // 0 = C#
                     totalTimeCS += timeCS;
 
                     //System.Threading.Thread.Sleep(50);
@@ -343,7 +341,7 @@ namespace EdgeDetection
                 for (int i = 0; i < iterations; i++)
                 {
                     long timeASM = 0;
-                    EdgeDetectorMain(MyBitmap, threadCount, 1, ref timeASM); // 1 = ASM
+                    EdgeDetectorRGBMain(MyBitmap, threadCount, 1, ref timeASM); // 1 = ASM
                     totalTimeASM += timeASM;
 
                     //System.Threading.Thread.Sleep(50);
