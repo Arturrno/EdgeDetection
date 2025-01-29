@@ -95,11 +95,11 @@ processLoop:
     movzx r12, byte ptr [rcx + rax + 2] ; B
 
 
-    cvtsi2sd xmm0, r13                 
+    cvtsi2sd xmm0, r13                
     movsd xmm1, qword ptr [KrRed]     
     mulsd xmm0, xmm1                
 
-    cvtsi2sd xmm2, r11               
+    cvtsi2sd xmm2, r11        
     movsd xmm1, qword ptr [KgRed]     
     mulsd xmm2, xmm1                
     addsd xmm0, xmm2              
@@ -123,11 +123,11 @@ no_clamp_high_red:
 no_clamp_low_red:
 
 
-    cvtsi2sd xmm0, r13              
+    cvtsi2sd xmm0, r13            
     movsd xmm1, qword ptr [KrGreen]  
     mulsd xmm0, xmm1               
 
-    cvtsi2sd xmm2, r11            
+    cvtsi2sd xmm2, r11   
     movsd xmm1, qword ptr [KgGreen]  
     mulsd xmm2, xmm1              
     addsd xmm0, xmm2            
@@ -150,11 +150,11 @@ no_clamp_high_green:
 no_clamp_low_green:
 
 
-    cvtsi2sd xmm0, r13                 
+    cvtsi2sd xmm0, r13              
     movsd xmm1, qword ptr [KrBlue]   
     mulsd xmm0, xmm1                
 
-    cvtsi2sd xmm2, r11               
+    cvtsi2sd xmm2, r11      
     movsd xmm1, qword ptr [KgBlue]  
     mulsd xmm2, xmm1           
     addsd xmm0, xmm2                

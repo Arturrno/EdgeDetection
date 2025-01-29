@@ -82,7 +82,6 @@ namespace EdgeDetection
 
             IntPtr inputPtr = bitmapData.Scan0; // Pointer to the bitmap data
             int imageSize = Math.Abs(bitmapData.Stride) * height; // Calculate total image size in bytes
-
             byte[] outputImage = new byte[imageSize];
 
             // Pin output buffer in memory
