@@ -56,27 +56,30 @@ namespace EdgeDetection
             }
         }
 
-        // C#
+        // C# RGB
         public static void EdgeDetectRGB_CS(byte[] redTab, byte[] greenTab, byte[] blueTab, ref byte[] resultTab)
         {
-            EdgeDetectionCS.EdgeDetectCS(redTab, greenTab, blueTab, resultTab);
+            EdgeDetectionCS.EdgeDetectRGB_CS(redTab, greenTab, blueTab, resultTab);
         }
 
-        // ASM
+        // ASM RGB
         public static void EdgeDetectRGB_ASM(byte[] redTab, byte[] greenTab, byte[] blueTab, ref byte[] resultTab)
         {
             EdgeDetect(redTab, greenTab, blueTab, resultTab);
         }
 
+        // C#
         public static void EdgeDetect_CS(IntPtr inputPtr, IntPtr outputPtr, int width, int height)
         {
-            //placeholder
+            EdgeDetectionCS.EdgeDetectCS(inputPtr, outputPtr, width, height);
         }
 
+        // ASM
         public static void EdgeDetect_ASM(IntPtr inputPtr, IntPtr outputPtr, int width, int height)
         {
             EdgeDetect2(inputPtr, outputPtr, width, height);
         }
+
         public Bitmap EdgeDetectorMain(Bitmap bitmap, int maxThreads, byte chosenDllLibrary, ref long time)
         {
             int width = bitmap.Width;
@@ -290,7 +293,7 @@ namespace EdgeDetection
                 {
                     long timeCS = 0;
                     //EdgeDetectorRGBMain(MyBitmap, threadCount, 0, ref timeCS); // 0 = C#
-                    EdgeDetectorMain(MyBitmap, threadCount, 0, ref timeCS); // 1 = ASM
+                    EdgeDetectorMain(MyBitmap, threadCount, 0, ref timeCS); // 0 = C#
                     totalTimeCS += timeCS;
 
                     System.Threading.Thread.Sleep(50);

@@ -142,76 +142,8 @@ EdgeDetect2 proc
 
     doneGrayscale:
 
-        ; ///////////////////////////////////////
-        ; Bluring the image
+       
 
-        push rbx
-        push rdi
-        push rsi
-        push rbp
-
-        mov rbx, rcx        ; rbx = input buffer pointer, points to current start pixel row
-        mov rdi, rdx        ; rdi = output buffer pointer
-        mov rsi, r8         ; rsi = width
-        imul rsi, 3         ; rsi = width * 3 // cause of the RGB input
-        mov rbp, r9         ; rbp = height
-
-        ; Loop over rows (excluding first & last row)
-        mov rdx, 1          ; Start from second row, rdx is the current row index
-        mov r12, rbp        ; Copy total height
-        sub r12, 1          ; r12 = rbp - 1 (last valid row index)
-
-    RowLoop:
-        cmp rdx, r12
-        jge Done            ; If last row, exit loop
-
-        ; Loop over pixels in the row (excluding first & last column)
-        mov rcx, 3          ; Start from second column, rcx is the current pixel index
-        mov r13, rsi        ; Copy width
-        sub r13, 3          ; r13 = rsi - 3 (last valid column index)
-
-    PixelLoop:
-        cmp rcx, r13
-        jge NextRow         ; If last column, go to next row
-
-        ; ///////////// DANGER ZONE /////////////
-
-        ; Load neighboring pixels (3x3 neighborhood)
-        ; movzx eax, byte ptr [rbx + rcx - 3]       ; Left pixel
-        ; movzx ebx, byte ptr [rbx + rcx + 3]       ; Right pixel
-     
-        ; bottom and top pixels go here
-
-        ; movzx edi, byte ptr [rbx + rcx]           ; Center pixel
-
-        ; Compute box blur: (left + right + top + bottom + center) / 5
-        ; add eax, ebx
-        ; top add eax, edx
-        ; bot add eax, esi
-        ; add eax, edi
-        ; mov ebx, 3
-        ; div ebx   ; eax = blurred pixel value
-
-        ; Store result
-        ; mov byte ptr [rdi + rcx], al
-
-        ; ///////////// END OF DANGER ZONE /////////////
-
-        ; Move to the next pixel
-        add rcx, 3
-        jmp PixelLoop
-
-    NextRow:
-        add rbx, rsi    ; Move to next row
-        add rdi, rsi    ; Move output pointer
-        inc rdx         ; Increment row counter
-        jmp RowLoop
-
-    done:
-        pop rbp
-        pop rsi
-        pop rdi
-        pop rbx
     ret
 EdgeDetect2 endp
 
