@@ -90,7 +90,7 @@ processLoop:
     jge done       
 
 
-    movzx r13, byte ptr [rcx + rax]      ; R
+    movzx r13, byte ptr [rcx + rax]     ; R
     movzx r11, byte ptr [rcx + rax + 1] ; G
     movzx r12, byte ptr [rcx + rax + 2] ; B
 

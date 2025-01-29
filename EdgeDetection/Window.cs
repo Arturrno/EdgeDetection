@@ -72,34 +72,43 @@ namespace EdgeDetection
         {
             int width = bitmap.Width;
             int height = bitmap.Height;
-            int imageSize = width * height; // Grayscale image: 1 byte per pixel
 
-            byte[] inputImage = BitmapToGrayscaleArray(bitmap); // Convert to grayscale
-            byte[] outputImage = new byte[imageSize];           // Allocate output buffer
+            // Lock the bitmap data to access raw pixel data
+            BitmapData bitmapData = bitmap.LockBits(
+                new Rectangle(0, 0, width, height),
+                ImageLockMode.ReadWrite,
+                PixelFormat.Format24bppRgb // Assuming RGB format (24bpp) /// IMPORTANT CAUSE WE SKIP ALPHA CHANNEL
+            );
 
-            // Pin arrays in memory for unmanaged access
-            GCHandle inputHandle = GCHandle.Alloc(inputImage, GCHandleType.Pinned);
+            IntPtr inputPtr = bitmapData.Scan0; // Pointer to the bitmap data
+            int imageSize = Math.Abs(bitmapData.Stride) * height; // Calculate total image size in bytes
+
+            byte[] outputImage = new byte[imageSize];
+
+            // Pin output buffer in memory
             GCHandle outputHandle = GCHandle.Alloc(outputImage, GCHandleType.Pinned);
 
             try
             {
-                IntPtr inputPtr = inputHandle.AddrOfPinnedObject();
                 IntPtr outputPtr = outputHandle.AddrOfPinnedObject();
 
-                MessageBox.Show($"Width: {width}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                BlurImage(inputPtr, imageSize, outputPtr); // Use the pointer to the bitmap data
 
-                // Call the assembly function
-                BlurImage(inputPtr, imageSize, outputPtr);             
+                // Copy the processed pixel data back to the bitmap
+                Marshal.Copy(outputPtr, outputImage, 0, imageSize); // Copy output image buffer to outputImage
+
+                // Update the bitmap with the blurred image
+                Marshal.Copy(outputImage, 0, bitmapData.Scan0, imageSize); // Copy output back to the bitmap
+
             }
             finally
             {
                 // Free allocated memory
-                inputHandle.Free();
                 outputHandle.Free();
+                bitmap.UnlockBits(bitmapData);
             }
 
-            // Convert the output byte array back to a Bitmap
-            return GrayscaleArrayToBitmap(outputImage, width, height);
+            return bitmap;
         }
 
         private static byte[] BitmapToGrayscaleArray(Bitmap bitmap)
