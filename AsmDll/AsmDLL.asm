@@ -4,20 +4,10 @@ g dd 0.59f
 b dd 0.11f
 ; Greyscale values for each channel based on human eye sensitivity
 
-KrRed dq 0.750     
-    KgRed dq 0.1    
-    KbRed dq 0.150   
-
-    KrGreen dq 0.800   
-    KgGreen dq 0.1  
-    KbGreen dq 0.100 
-
-    KrBlue dq 0.800 
-    KgBlue dq 0.1
-    KbBlue dq 0.100 
-
-
-    rounding dq 0.5        
+red dq 0.3f 
+green dq 0.59f
+blue dq 0.11f
+rounding dq 0.5        
 
 ; Registers :
     ; - RCX: pointer to the red channel
@@ -89,104 +79,55 @@ processLoop:
     cmp rax, rdx
     jge done       
 
-
     movzx r13, byte ptr [rcx + rax]     ; R
     movzx r11, byte ptr [rcx + rax + 1] ; G
     movzx r12, byte ptr [rcx + rax + 2] ; B
 
+    ;/////////////////////////////////////
 
-    cvtsi2sd xmm0, r13                
-    movsd xmm1, qword ptr [KrRed]     
-    mulsd xmm0, xmm1                
+    cvtsi2sd xmm0, r13                  ; Convert R to float                
+    movsd xmm1, qword ptr [red]         ; Load red channel weight
+    mulsd xmm0, xmm1                    ; Multiply R by red channel weight
 
-    cvtsi2sd xmm2, r11        
-    movsd xmm1, qword ptr [KgRed]     
-    mulsd xmm2, xmm1                
-    addsd xmm0, xmm2              
+    addsd xmm0, qword ptr [rounding]    ; Add rounding value
+    cvttsd2si r9d, xmm0                 ; Convert into integer           
 
-    cvtsi2sd xmm2, r12              
-    movsd xmm1, qword ptr [KbRed]     
-    mulsd xmm2, xmm1                 
-    addsd xmm0, xmm2                
+    ;/////////////////////////////////////
 
-    addsd xmm0, qword ptr [rounding] 
-    cvttsd2si r9d, xmm0           
-
-    mov r12d, 255
-    cmp r9d, r12d
-    jle no_clamp_high_red
-    mov r9d, 255
-no_clamp_high_red:
-    test r9d, r9d
-    jge no_clamp_low_red
-    xor r9d, r9d
-no_clamp_low_red:
-
-
-    cvtsi2sd xmm0, r13            
-    movsd xmm1, qword ptr [KrGreen]  
-    mulsd xmm0, xmm1               
-
-    cvtsi2sd xmm2, r11   
-    movsd xmm1, qword ptr [KgGreen]  
-    mulsd xmm2, xmm1              
-    addsd xmm0, xmm2            
-
-    cvtsi2sd xmm2, r12              
-    movsd xmm1, qword ptr [KbGreen]  
-    mulsd xmm2, xmm1          
-    addsd xmm0, xmm2               
+    cvtsi2sd xmm0, r11  
+    movsd xmm1, qword ptr [green]  
+    mulsd xmm0, xmm1                            
 
     addsd xmm0, qword ptr [rounding]
     cvttsd2si r10d, xmm0           
 
-    cmp r10d, r12d
-    jle no_clamp_high_green
-    mov r10d, 255
-no_clamp_high_green:
-    test r10d, r10d
-    jge no_clamp_low_green
-    xor r10d, r10d
-no_clamp_low_green:
+    ;/////////////////////////////////////
 
-
-    cvtsi2sd xmm0, r13              
-    movsd xmm1, qword ptr [KrBlue]   
-    mulsd xmm0, xmm1                
-
-    cvtsi2sd xmm2, r11      
-    movsd xmm1, qword ptr [KgBlue]  
-    mulsd xmm2, xmm1           
-    addsd xmm0, xmm2                
-
-    cvtsi2sd xmm2, r12              
-    movsd xmm1, qword ptr [KbBlue]   
-    mulsd xmm2, xmm1             
-    addsd xmm0, xmm2              
+    cvtsi2sd xmm0, r12              
+    movsd xmm1, qword ptr [blue]   
+    mulsd xmm0, xmm1                            
 
     addsd xmm0, qword ptr [rounding] 
     cvttsd2si r11d, xmm0           
 
-    cmp r11d, r12d
-    jle no_clamp_high_blue
-    mov r11d, 255
-no_clamp_high_blue:
-    test r11d, r11d
-    jge no_clamp_low_blue
-    xor r11d, r11d
-no_clamp_low_blue:
+    ;/////////////////////////////////////
 
-    mov byte ptr [r8 + rax], r9b
-    mov byte ptr [r8 + rax + 1], r10b
-    mov byte ptr [r8 + rax + 2], r11b
+    ; Add r9b, r10b, and r11b together and store the sum in r13b
+
+    add r9b, r10b
+    add r9b, r11b
+
+    mov r13b, r9b       
+
+    mov byte ptr [r8 + rax], r13b
+    mov byte ptr [r8 + rax + 1], r13b
+    mov byte ptr [r8 + rax + 2], r13b
 
     add rax, 3
     jmp processLoop
 
 done:
     ret
-
-        ret
 BlurImage endp
 
 end
