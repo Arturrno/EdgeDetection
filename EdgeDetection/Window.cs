@@ -24,7 +24,7 @@ namespace EdgeDetection
         static extern int EdgeDetect(byte[] redTab, byte[] greenTab, byte[] blueTab, byte[] testTab);
 
         [DllImport(@"C:\Users\artur\source\repos\EdgeDetection\x64\Debug\AsmDLL.dll")]
-        static extern void BlurImage(IntPtr inputBuffer, IntPtr outputBuffer, int size);
+        static extern void BlurImage(IntPtr inputBuffer, IntPtr outputBuffer, int width, int height);
 
         private Bitmap MyBitmap;
 
@@ -81,8 +81,10 @@ namespace EdgeDetection
             );
 
             IntPtr inputPtr = bitmapData.Scan0; // Pointer to the bitmap data
+
             //int imageSize = Math.Abs(bitmapData.Stride) * height; // Calculate total image size in bytes
             int imageSize = width * height * 3; // Calculate total image size in bytes
+
             byte[] outputImage = new byte[imageSize];
 
             // Pin output buffer in memory
@@ -92,9 +94,9 @@ namespace EdgeDetection
             {
                 IntPtr outputPtr = outputHandle.AddrOfPinnedObject();
 
-                MessageBox.Show($"Error during conversion: {imageSize}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Image size: {imageSize}", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                BlurImage(inputPtr, outputPtr, imageSize); // Use the pointer to the bitmap data
+                BlurImage(inputPtr, outputPtr, width, height); // Use the pointer to the bitmap data
 
                 // Copy the processed pixel data back to the bitmap
                 Marshal.Copy(outputPtr, outputImage, 0, imageSize); // Copy output image buffer to outputImage
@@ -109,76 +111,6 @@ namespace EdgeDetection
                 outputHandle.Free();
                 bitmap.UnlockBits(bitmapData);
             }
-
-            return bitmap;
-        }
-
-        private static byte[] BitmapToGrayscaleArray(Bitmap bitmap)
-        {
-            int width = bitmap.Width;
-            int height = bitmap.Height;
-            byte[] grayscaleData = new byte[width * height];
-
-            BitmapData bmpData = bitmap.LockBits(
-                new Rectangle(0, 0, width, height),
-                ImageLockMode.ReadOnly,
-                PixelFormat.Format24bppRgb // Assumes input is 24-bit RGB
-            );
-
-            int stride = bmpData.Stride;
-            IntPtr ptr = bmpData.Scan0;
-            byte[] rgbValues = new byte[Math.Abs(stride) * height];
-
-            Marshal.Copy(ptr, rgbValues, 0, rgbValues.Length);
-            bitmap.UnlockBits(bmpData);
-
-            // Convert RGB to grayscale using luminance formula
-            for (int y = 0; y < height; y++)
-            {
-                for (int x = 0; x < width; x++)
-                {
-                    int pixelIndex = (y * stride) + (x * 3);
-                    byte blue = rgbValues[pixelIndex];
-                    byte green = rgbValues[pixelIndex + 1];
-                    byte red = rgbValues[pixelIndex + 2];
-
-                    // Grayscale conversion (using human eye sensitivity)
-                    grayscaleData[y * width + x] = (byte)(0.3 * red + 0.59 * green + 0.11 * blue);
-                }
-            }
-
-            return grayscaleData;
-        }
-
-        private static Bitmap GrayscaleArrayToBitmap(byte[] grayscaleData, int width, int height)
-        {
-            Bitmap bitmap = new Bitmap(width, height, PixelFormat.Format24bppRgb);
-            BitmapData bmpData = bitmap.LockBits(
-                new Rectangle(0, 0, width, height),
-                ImageLockMode.WriteOnly,
-                PixelFormat.Format24bppRgb
-            );
-
-            int stride = bmpData.Stride;
-            byte[] rgbValues = new byte[Math.Abs(stride) * height];
-
-            // Convert grayscale back to RGB format
-            for (int y = 0; y < height; y++)
-            {
-                for (int x = 0; x < width; x++)
-                {
-                    int pixelIndex = (y * stride) + (x * 3);
-                    byte gray = grayscaleData[y * width + x];
-
-                    // Set all channels to grayscale value
-                    rgbValues[pixelIndex] = gray;     // Blue
-                    rgbValues[pixelIndex + 1] = gray; // Green
-                    rgbValues[pixelIndex + 2] = gray; // Red
-                }
-            }
-
-            Marshal.Copy(rgbValues, 0, bmpData.Scan0, rgbValues.Length);
-            bitmap.UnlockBits(bmpData);
 
             return bitmap;
         }
