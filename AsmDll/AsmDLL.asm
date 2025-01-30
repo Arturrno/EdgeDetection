@@ -167,7 +167,7 @@ Grayscale:
         sub r11, 1   ; Avoid edge pixels (1 pixel from top and bottom)
 
         mov r12, r10  ; r12 = width (inner loop counter limit)
-        sub r12, r8   ; Avoid edge pixels (3 pixel from left and right)
+        sub r12, 3   ; Avoid edge pixels (3 pixel from left and right)
 
         ; Initialize pixel index
         xor rsi, rsi ; rsi = current row index (in bytes)
@@ -242,9 +242,9 @@ Grayscale:
         ; Store the blurred pixel in the output buffer
         mov r14, rsi
         add r14, rdi
-        add r14, r10
-        ;add r14, 3
         mov byte ptr [rdx + r14], r13b
+        mov byte ptr [rdx + r14 + 1], r13b
+        mov byte ptr [rdx + r14 + 2], r13b
 
         ; Move to the next column
         add rdi, 3

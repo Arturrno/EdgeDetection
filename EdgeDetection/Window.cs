@@ -14,6 +14,10 @@ using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 // TODO:
 // change parsing 8-bit groups to parsing bigger parts of image for blur to work???
 // implement working blur
+// threads up to 64
+// from 2 to 6
+// send project files
+
 
 namespace EdgeDetection
 {
@@ -35,7 +39,8 @@ namespace EdgeDetection
         private void Window_Load(object sender, EventArgs e)
         {
             comboBox1.Items.Clear();
-            int maxThreads = Environment.ProcessorCount;
+            //int maxThreads = Environment.ProcessorCount;
+            int maxThreads = 64;
 
             int threadCount = 1;
             while (threadCount <= maxThreads)
@@ -212,10 +217,14 @@ namespace EdgeDetection
 
             try
             {
-                long processingTime = 0;
-                //Bitmap processedImage = EdgeDetectorRGBMain(MyBitmap, maxThreads, library, ref processingTime);
-                Bitmap processedImage = EdgeDetectorMain(MyBitmap, maxThreads, library, ref processingTime);
+                // Create a deep copy of the bitmap to avoid corrupting the original
+                Bitmap tempBitmap = (Bitmap)MyBitmap.Clone();
 
+                long processingTime = 0;
+                // Bitmap processedImage = EdgeDetectorRGBMain(tempBitmap, maxThreads, library, ref processingTime);
+                Bitmap processedImage = EdgeDetectorMain(tempBitmap, maxThreads, library, ref processingTime);
+
+                // No need to restore MyBitmap since it was never modified
                 label5.Text = processingTime + " µs";
                 ConvertedPictureBox.Image = processedImage;
                 ConvertedPictureBox.SizeMode = PictureBoxSizeMode.Zoom;
