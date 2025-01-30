@@ -1,3 +1,17 @@
+;/*************************************************************************************************************
+; *  Temat   :   EdgeDetection - Prosty program do detekcji krawedzi w obrazach,
+; *              udalo mi sie zaimplementowac algorytm poszarzania i blurowania w obrazach w jezyku C# oraz w jezyku asemblera.
+; *  Autor   :   Artur Szabon
+; *  Opis    :   Program pozwala na wczytanie obrazu w formacie .bmp, a nastepnie przetworzenie go za pomoca algorytmu przeksztalcenia
+; *              na odcienie szarosci, poprzez przemnozenie wartosci pikseli przez odpowiednie wagi. Nastepnie obraz jest rozmywany
+; *              poprzez wziecie sredniej z 4 sasiednich pikseli oraz piksela centralnego. Wynikowy obraz jest wyswietlany w oknie.
+; *  Wersja  :   V0.5 - implementacja dzialajacego blura w C# oraz w ASM
+; *              V0.4 - proby dodania algorytmu blurowania w ASM, dodanie nowego algorytmu w C#
+; *              V0.3 - zamiana algorytmu wektorowego na algorytm obslugujacy pojedyncze piksele aby dodac blur, dodanie zapisu wyniku do pliku Excel
+; *              V0.2 - dodanie obslugi wielowatkowosci, dodanie obslugi bibliotek DLL, dodanie algorytmu w C#, modyfikacja interfejsu
+; *              V0.1 - stworzenie projektu i dodanie bibliotek DLL, implementacja algorytmu wektorowego w ASM, stworzenie prostego interfejsu
+; *************************************************************************************************************/
+
 .data
 r dd 0.3f 
 g dd 0.59f
@@ -7,76 +21,76 @@ redWeight dq 0.3f
 greenWeight dq 0.59f
 blueWeight dq 0.11f
 
-; Greyscale values for each channel based on human eye sensitivity
-
-; Registers :
-    ; - RCX: pointer to the red channel
-    ; - RDX: pointer to the green channel
-    ; - R8:  pointer to the blue channel
-    ; - R9:  pointer to the output buffer
+; Wagi dla poszczegolnych kanalow kolorow na podstawie ludzkiej percepcji
 
 .code
 EdgeDetectRGB proc
-    ; Red
-    vmovups xmm0, xmmword ptr [rcx]           ; fetch 8 bytes of data (pixels in a group)
-    vpmovzxbd ymm0, xmm0                      ; extend bytes to words (16-bit)
-    vcvtdq2ps ymm0, ymm0                      ; convert integer data to floating point numbers
+    ; Rejestry:
+    ; rcx - wskaznik do kanalu czerwonego (red channel)
+    ; rdx - wskaznik do kanalu zielonego (green channel)
+    ; r8 -  wskaznik do kanalu niebieskiego (blue channel)
+    ; r9 -  wskaznik do bufora wyjsciowego (output buffer)
 
-    ; Green
-    vmovups xmm1, xmmword ptr [rdx]
-    vpmovzxbd ymm1, xmm1
-    vcvtdq2ps ymm1, ymm1
+    ; Czerwony (Red)
+    vmovups xmm0, xmmword ptr [rcx]           ; pobierz 8 bajtow danych (piksele w grupie)
+    vpmovzxbd ymm0, xmm0                      ; rozszerz bajty do slow (16-bit)
+    vcvtdq2ps ymm0, ymm0                      ; konwertuj dane calkowite na liczby zmiennoprzecinkowe
 
-    ; Blue
-    vmovups xmm2, xmmword ptr [r8]
-    vpmovzxbd ymm2, xmm2
-    vcvtdq2ps ymm2, ymm2
+    ; Zielony (Green)
+    vmovups xmm1, xmmword ptr [rdx]           ; pobierz 8 bajtow danych z kanalu zielonego
+    vpmovzxbd ymm1, xmm1                      ; rozszerz bajty do slow
+    vcvtdq2ps ymm1, ymm1                      ; konwertuj dane calkowite na liczby zmiennoprzecinkowe
 
-    ; Broadcast weights to all elements of the register
-    vbroadcastss ymm3, r
-    vbroadcastss ymm4, g
-    vbroadcastss ymm5, b                   
+    ; Niebieski (Blue)
+    vmovups xmm2, xmmword ptr [r8]            ; pobierz 8 bajtow danych z kanalu niebieskiego
+    vpmovzxbd ymm2, xmm2                      ; rozszerz bajty do slow
+    vcvtdq2ps ymm2, ymm2                      ; konwertuj dane calkowite na liczby zmiennoprzecinkowe
 
-    ; Multiply channel data by respective weights
-    vmulps ymm0, ymm0, ymm3
-    vmulps ymm1, ymm1, ymm4
-    vmulps ymm2, ymm2, ymm5
+    ; Rozglos wagi do wszystkich elementow rejestru
+    vbroadcastss ymm3, r                      ; rozglos wage dla kanalu czerwonego
+    vbroadcastss ymm4, g                      ; rozglos wage dla kanalu zielonego
+    vbroadcastss ymm5, b                      ; rozglos wage dla kanalu niebieskiego
 
-    ; Sum the results to get grayscale value
-    vaddps ymm0, ymm0, ymm1
-    vaddps ymm0, ymm0, ymm2
+    ; Pomnoz dane kanalow przez odpowiednie wagi
+    vmulps ymm0, ymm0, ymm3                   ; pomnoz kanal czerwony przez wage
+    vmulps ymm1, ymm1, ymm4                   ; pomnoz kanal zielony przez wage
+    vmulps ymm2, ymm2, ymm5                   ; pomnoz kanal niebieski przez wage
 
-    ; Convert results to integer values
-    vcvttps2dq ymm0, ymm0
+    ; Sumuj wyniki, aby uzyskac wartosc skali szarosci
+    vaddps ymm0, ymm0, ymm1                   ; dodaj kanal czerwony i zielony
+    vaddps ymm0, ymm0, ymm2                   ; dodaj kanal niebieski
 
-    ; store processed data to memory // xmm0 holds 16 bytes, that is 128 bits
-    pextrb byte ptr [r9+0], xmm0, 0
-    pextrb byte ptr [r9+1], xmm0, 4
-    pextrb byte ptr [r9+2], xmm0, 8
-    pextrb byte ptr [r9+3], xmm0, 12
+    ; Konwertuj wyniki na wartosci calkowite
+    vcvttps2dq ymm0, ymm0                     ; konwertuj liczby zmiennoprzecinkowe na calkowite
 
-    ; rearrange data in ymm0 register to handle the next pixels
-    vpermq ymm0, ymm0, 11111110b              ; swap lower and upper parts of the register (at the 128-bit level) cause xmm is half the ymm
+    ; Zapisz przetworzone dane do pamieci // xmm0 przechowuje 16 bajtow, czyli 128 bitow
+    pextrb byte ptr [r9+0], xmm0, 0           ; wyciagnij i zapisz pierwszy bajt
+    pextrb byte ptr [r9+1], xmm0, 4           ; wyciagnij i zapisz drugi bajt
+    pextrb byte ptr [r9+2], xmm0, 8           ; wyciagnij i zapisz trzeci bajt
+    pextrb byte ptr [r9+3], xmm0, 12          ; wyciagnij i zapisz czwarty bajt
 
-    ; store processed data for the next pixels
-    pextrb byte ptr [r9+4], xmm0, 0
-    pextrb byte ptr [r9+5], xmm0, 4
-    pextrb byte ptr [r9+6], xmm0, 8
-    pextrb byte ptr [r9+7], xmm0, 12
+    ; Przestaw dane w rejestrze ymm0, aby obsluzyc kolejne piksele
+    vpermq ymm0, ymm0, 11111110b              ; zamien dolne i gorne czesci rejestru (na poziomie 128-bitow), poniewaz xmm to polowa ymm
+
+    ; Zapisz przetworzone dane dla kolejnych pikseli
+    pextrb byte ptr [r9+4], xmm0, 0           ; wyciagnij i zapisz piaty bajt
+    pextrb byte ptr [r9+5], xmm0, 4           ; wyciagnij i zapisz szosty bajt
+    pextrb byte ptr [r9+6], xmm0, 8           ; wyciagnij i zapisz siodmy bajt
+    pextrb byte ptr [r9+7], xmm0, 12          ; wyciagnij i zapisz osmy bajt
     
-    ; End of procedure
+    ; Koniec procedury
     ret
 EdgeDetectRGB endp
 
     ; /////////////////////////////////////////////////////////////////////////////////////////
 
 EdgeDetect proc
-        ; rcx - pointer to input buffer
-        ; rdx - pointer to output buffer
-        ; r8 - width
-        ; r9 - height
+        ; rcx - wskaznik do bufora wejsciowego (input buffer)
+        ; rdx - wskaznik do bufora wyjsciowego (output buffer)
+        ; r8 - szerokosc (width)
+        ; r9 - wysokosc (height)
 
-        ; Save registers
+        ; Zapisz rejestry na stosie
         push rbp
         push rbx
         push rsi
@@ -86,13 +100,13 @@ EdgeDetect proc
         push r14
         push r15
 
-        ; Grayscale the input image
+        ; Przekonwertuj obraz na skale szarosci
         call Grayscale
 
-        ; Perform blur on the grayscale image
+        ; Wykonaj rozmycie na obrazie w skali szarosci
         call Blur
 
-        ; Restore registers
+        ; Przywroc rejestry ze stosu
         pop r15
         pop r14
         pop r13
@@ -105,53 +119,55 @@ EdgeDetect proc
         ret
 
 Grayscale:
-        ; Grayscale the input image
-        ; Input: rcx = input buffer, rdx = output buffer, r8 = width, r9 = height
-        ; Output: Grayscale image stored in the output buffer
+        ; Przekonwertuj obraz na skale szarosci
+        ; rcx - wskaznik do bufora wejsciowego (input buffer)
+        ; rdx - wskaznik do bufora wyjsciowego (output buffer)
+        ; r8 - szerokosc (width)
+        ; r9 - wysokosc (height)
 
-        ; Calculate total number of pixels (width * height * 3)
+        ; Oblicz calkowita liczbe pikseli (szerokosc * wysokosc * 3)
         imul r9, r8
         imul r9, 3
         mov r13, r9
 
-        xor rax, rax   ; rax = current pixel index
+        xor rax, rax   ; rax = aktualny indeks piksela
 
     processLoop:
         cmp rax, r13
         jge doneGrayscale
 
-        ; Load RGB values
+        ; Wczytaj wartosci RGB
         movzx r10, byte ptr [rcx + rax]         ; R
         movzx r11, byte ptr [rcx + rax + 1]     ; G
         movzx r12, byte ptr [rcx + rax + 2]     ; B
 
-        ; Convert to grayscale using weighted sum
-        cvtsi2sd xmm0, r10                      ; R to float
-        mulsd xmm0, qword ptr [redWeight]       ; multiply by weight
+        ; Przekonwertuj na skale szarosci uzywajac wazonej sumy
+        cvtsi2sd xmm0, r10                      ; R na liczbe zmiennoprzecinkowa
+        mulsd xmm0, qword ptr [redWeight]       ; pomnoz przez wage
 
         cvtsi2sd xmm1, r11                      
-        mulsd xmm1, qword ptr [greenWeight] 
+        mulsd xmm1, qword ptr [greenWeight]     ; pomnoz przez wage
 
         cvtsi2sd xmm2, r12                      
-        mulsd xmm2, qword ptr [blueWeight]  
+        mulsd xmm2, qword ptr [blueWeight]      ; pomnoz przez wage
 
         addsd xmm0, xmm1                        ; R + G
         addsd xmm0, xmm2                        ; R + G + B
 
-        ; Convert back to integer
-        cvttsd2si r10d, xmm0                    ; Convert to integer
+        ; Przekonwertuj z powrotem na liczbe calkowita
+        cvttsd2si r10d, xmm0                    ; Konwertuj na liczbe calkowita
 
-        ; Store grayscale value in output buffer
+        ; Zapisz wartosc w skali szarosci w buforze wyjsciowym
         mov byte ptr [rdx + rax], r10b          ; R
         mov byte ptr [rdx + rax + 1], r10b      ; G
         mov byte ptr [rdx + rax + 2], r10b      ; B
 
-        ; Store grayscale value in output buffer
+        ; Zapisz wartosc w skali szarosci w buforze wejsciowym (opcjonalnie)
         mov byte ptr [rcx + rax], r10b          ; R
         mov byte ptr [rcx + rax + 1], r10b      ; G
         mov byte ptr [rcx + rax + 2], r10b      ; B
 
-        ; Move to next pixel
+        ; Przejdz do nastepnego piksela
         add rax, 3
         jmp processLoop
 
@@ -159,104 +175,106 @@ Grayscale:
         ret
 
     Blur:
-        ; Blur the grayscale image
-        ; Input: rcx = input buffer, rdx = output buffer, r8 = width, r9 = height
-        ; Output: Blurred image stored in the output buffer
+        ; Rozmycie obrazu w skali szarosci
+        ; rcx - wskaznik do bufora wejsciowego (input buffer)
+        ; rdx - wskaznik do bufora wyjsciowego (output buffer)
+        ; r8 - szerokosc (width)
+        ; r9 - wysokosc (height)
 
-        ; Calculate the number of bytes per row (stride)
+        ; Obliczenie liczby bajtow na wiersz (stride)
         mov r10, r8
-        imul r10, 3  ; r10 = width * 3 (bytes per row)
+        imul r10, 3  ; r10 = szerokosc * 3 (bajty na wiersz)
 
-        ; Initialize loop counters
-        mov r11, r9  ; r11 = height (outer loop counter limit)
-        sub r11, 1   ; Avoid edge pixels (1 pixel from top and bottom)
+        ; Inicjalizacja licznikow petli
+        mov r11, r9  ; r11 = wysokosc (limit petli zewnetrznej)
+        sub r11, 1   ; Pominiecie pikseli brzegowych (1 piksel od gory i dolu)
 
-        mov r12, r10  ; r12 = width (inner loop counter limit)
-        sub r12, 3   ; Avoid edge pixels (3 pixel from left and right)
+        mov r12, r10  ; r12 = szerokosc (limit petli wewnetrznej)
+        sub r12, 3   ; Pominiecie pikseli brzegowych (3 piksele od lewej i prawej)
 
-        ; Initialize pixel index
-        xor rsi, rsi ; rsi = current row index (in bytes)
-        add rsi, 1   ; Skip first row
+        ; Inicjalizacja indeksu piksela
+        xor rsi, rsi ; rsi = aktualny indeks wiersza (w bajtach)
+        add rsi, 1   ; Pominiecie pierwszego wiersza
 
     outerLoop:
         cmp rsi, r11
         jge doneBlur
 
-        ; Initialize inner loop counter
-        xor rdi, rdi ; rdi = current column index (in bytes)
-        add rdi, 3   ; Skip first 3 columns
+        ; Inicjalizacja licznika petli wewnetrznej
+        xor rdi, rdi ; rdi = aktualny indeks kolumny (w bajtach)
+        add rdi, 3   ; Pominiecie pierwszych 3 kolumn
 
     innerLoop:
         cmp rdi, r12
         jge nextRow
 
-        ; Calculate the sum of the 5-pixel neighborhood
-        xor r13, r13 ; r13 = sum of the neighborhood
+        ; Obliczenie sumy sasiedztwa 5 pikseli
+        xor r13, r13 ; r13 = suma sasiedztwa
 
-        ; Middle-center pixel
+        ; Piksel srodkowy
         mov r14, rsi
         add r14, rdi
         movzx r15, byte ptr [rcx + r14]
         add r13, r15
 
-        ; Top-center pixel
+        ; Piksel gorny
         mov r14, rsi
         add r14, rdi
         sub r14, r10
         movzx r15, byte ptr [rcx + r14]
         add r13, r15
 
-        ; Bottom-center pixel
+        ; Piksel dolny
         mov r14, rsi
         add r14, rdi
         add r14, r10
         movzx r15, byte ptr [rcx + r14]
         add r13, r15
 
-        ; Middle-left pixel
+        ; Piksel lewy
         mov r14, rsi
         add r14, rdi
         sub r14, 3
         movzx r15, byte ptr [rcx + r14]
         add r13, r15
 
-        ; Middle-right pixel
+        ; Piksel prawy
         mov r14, rsi
         add r14, rdi
         add r14, 3
         movzx r15, byte ptr [rcx + r14]
         add r13, r15
 
-        ; Save rcx and rdx before division
+        ; Zapisanie rcx i rdx przed dzieleniem
         push rcx
         push rdx
 
-        ; Prepare the dividend
-        mov rax, r13        ; Move r13 (value to divide) into rax
-        xor rdx, rdx        ; Clear rdx (high 64 bits of the dividend)
+        ; Przygotowanie dzielnej
+        mov rax, r13        ; Przeniesienie r13 (wartosc do podzielenia) do rax
+        xor rdx, rdx        ; Wyczyszczenie rdx (wysokie 64 bity dzielnej)
 
-        ; Calculate the average (divide by 5)
-        mov r14, 5          ; Divisor (5)
-        div r14             ; Divide (rdx:rax) by r14
-        mov r13, rax        ; Quotient is now in r13 = rax, remainder in rdx
+        ; Obliczenie sredniej (podzial przez 5)
+        mov r14, 5          ; Dzielnik (5)
+        div r14             ; Dzielenie (rdx:rax) przez r14
+        mov r13, rax        ; Iloraz jest teraz w r13 = rax, reszta w rdx
 
-        ; Restore original values of rcx and rdx
+        ; Przywrocenie oryginalnych wartosci rcx i rdx
         pop rdx
         pop rcx
 
-        ; Store the blurred pixel in the output buffer
+        ; Zapisanie rozmytego piksela do bufora wyjsciowego
         mov r14, rsi
         add r14, rdi
         mov byte ptr [rdx + r14], r13b
         mov byte ptr [rdx + r14 + 1], r13b
         mov byte ptr [rdx + r14 + 2], r13b
 
-        ; Move to the next column
+        ; Przejscie do nastepnej kolumny
         add rdi, 3
         jmp innerLoop
 
     nextRow:
-        ; Move to the next row
+        ; Przejscie do nastepnego wiersza
         add rsi, r10
         jmp outerLoop
 

@@ -30,24 +30,29 @@ namespace EdgeDetection
 {
     public partial class Window : Form
     {
+        // Importowanie funkcji z biblioteki AsmDLL.dll
         [DllImport(@"C:\Users\artur\source\repos\EdgeDetection\x64\Debug\AsmDLL.dll")]
         static extern int EdgeDetectRGB(byte[] redTab, byte[] greenTab, byte[] blueTab, byte[] testTab);
 
         [DllImport(@"C:\Users\artur\source\repos\EdgeDetection\x64\Debug\AsmDLL.dll")]
         static extern void EdgeDetect(byte[] input, byte[] output, int width, int height);
 
-        private Bitmap MyBitmap;
+        private Bitmap MyBitmap; // Przechowuje załadowany obraz
 
         public Window()
         {
             InitializeComponent();
         }
 
+        /// <summary>
+        /// Metoda wywoływana podczas ładowania okna. Inicjalizuje ComboBox z dostępnymi liczbami wątków.
+        /// </summary>
+        /// <param name="sender">Obiekt wywołujący zdarzenie.</param>
+        /// <param name="e">Argumenty zdarzenia.</param>
         private void Window_Load(object sender, EventArgs e)
         {
             comboBox1.Items.Clear();
-            //int maxThreads = Environment.ProcessorCount;
-            int maxThreads = 64;
+            int maxThreads = 64; // Maksymalna liczba wątków
 
             int threadCount = 1;
             while (threadCount <= maxThreads)
@@ -61,44 +66,75 @@ namespace EdgeDetection
                 comboBox1.Items.Add(maxThreads);
             }
 
-
             if (comboBox1.Items.Count > 0)
             {
                 comboBox1.SelectedIndex = 0;
             }
         }
 
-        // C# RGB
+        /// <summary>
+        /// Metoda wykrywająca krawędzie w obrazie przy użyciu implementacji C#.
+        /// </summary>
+        /// <param name="redTab">Tablica wartości składowej czerwonej pikseli.</param>
+        /// <param name="greenTab">Tablica wartości składowej zielonej pikseli.</param>
+        /// <param name="blueTab">Tablica wartości składowej niebieskiej pikseli.</param>
+        /// <param name="resultTab">Tablica wynikowa przechowująca przetworzone wartości pikseli.</param>
         public static void EdgeDetectRGB_CS(byte[] redTab, byte[] greenTab, byte[] blueTab, ref byte[] resultTab)
         {
             EdgeDetectionCS.EdgeDetectRGB_CS(redTab, greenTab, blueTab, resultTab);
         }
 
-        // ASM RGB
+        /// <summary>
+        /// Metoda wykrywająca krawędzie w obrazie przy użyciu implementacji ASM.
+        /// </summary>
+        /// <param name="redTab">Tablica wartości składowej czerwonej pikseli.</param>
+        /// <param name="greenTab">Tablica wartości składowej zielonej pikseli.</param>
+        /// <param name="blueTab">Tablica wartości składowej niebieskiej pikseli.</param>
+        /// <param name="resultTab">Tablica wynikowa przechowująca przetworzone wartości pikseli.</param>
         public static void EdgeDetectRGB_ASM(byte[] redTab, byte[] greenTab, byte[] blueTab, ref byte[] resultTab)
         {
             EdgeDetectRGB(redTab, greenTab, blueTab, resultTab);
         }
 
-        // C#
+        /// <summary>
+        /// Metoda wykrywająca krawędzie w obrazie przy użyciu implementacji C#.
+        /// </summary>
+        /// <param name="input">Tablica wejściowa zawierająca dane obrazu.</param>
+        /// <param name="output">Tablica wynikowa przechowująca przetworzone dane obrazu.</param>
+        /// <param name="width">Szerokość obrazu.</param>
+        /// <param name="height">Wysokość obrazu.</param>
         public static void EdgeDetect_CS(byte[] input, byte[] output, int width, int height)
         {
             EdgeDetectionCS.EdgeDetectCS(input, output, width, height);
         }
 
-        // ASM
+        /// <summary>
+        /// Metoda wykrywająca krawędzie w obrazie przy użyciu implementacji ASM.
+        /// </summary>
+        /// <param name="input">Tablica wejściowa zawierająca dane obrazu.</param>
+        /// <param name="output">Tablica wynikowa przechowująca przetworzone dane obrazu.</param>
+        /// <param name="width">Szerokość obrazu.</param>
+        /// <param name="height">Wysokość obrazu.</param>
         public static void EdgeDetect_ASM(byte[] input, byte[] output, int width, int height)
         {
             EdgeDetect(input, output, width, height);
         }
 
+        /// <summary>
+        /// Główna metoda wykrywająca krawędzie w obrazie. Dzieli obraz na fragmenty i przetwarza je równolegle.
+        /// </summary>
+        /// <param name="bitmap">Obraz wejściowy.</param>
+        /// <param name="maxThreads">Maksymalna liczba wątków do przetwarzania.</param>
+        /// <param name="chosenDllLibrary">Wybrana biblioteka (0 - C#, 1 - ASM).</param>
+        /// <param name="time">Czas przetwarzania w mikrosekundach.</param>
+        /// <returns>Przetworzony obraz.</returns>
         public Bitmap EdgeDetectorMain(Bitmap bitmap, int maxThreads, byte chosenDllLibrary, ref long time)
         {
             int width = bitmap.Width;
             int height = bitmap.Height;
-            int bytesPerPixel = 3; // Assuming 24bpp (RGB format)
+            int bytesPerPixel = 3; // Format 24bpp (RGB)
             int stride = width * bytesPerPixel;
-            int chunkHeight = height / maxThreads; // Height of each chunk
+            int chunkHeight = height / maxThreads; // Wysokość każdego fragmentu
 
             BitmapData bitmapData = bitmap.LockBits(
                 new Rectangle(0, 0, width, height),
@@ -109,7 +145,7 @@ namespace EdgeDetection
             byte[] inputImage = new byte[height * stride];
             byte[] outputImage = new byte[height * stride];
 
-            // Copy the bitmap data to the inputImage array
+            // Kopiowanie danych obrazu do tablicy inputImage
             Marshal.Copy(bitmapData.Scan0, inputImage, 0, inputImage.Length);
 
             List<Task> tasks = new List<Task>();
@@ -126,7 +162,7 @@ namespace EdgeDetection
                     byte[] inputChunk = new byte[chunkSize];
                     byte[] outputChunk = new byte[chunkSize];
 
-                    // Copy the chunk from the inputImage to inputChunk
+                    // Kopiowanie fragmentu z inputImage do inputChunk
                     Buffer.BlockCopy(inputImage, startRow * stride, inputChunk, 0, chunkSize);
 
                     if (chosenDllLibrary == 0)
@@ -134,11 +170,11 @@ namespace EdgeDetection
                     else if (chosenDllLibrary == 1)
                         EdgeDetect_ASM(inputChunk, outputChunk, width, endRow - startRow);
 
-                    // Copy the processed chunk back to the outputImage
+                    // Kopiowanie przetworzonego fragmentu do outputImage
                     Buffer.BlockCopy(outputChunk, 0, outputImage, startRow * stride, chunkSize);
                 });
 
-                // Copy the outputImage back to the bitmap
+                // Kopiowanie outputImage z powrotem do bitmapy
                 Marshal.Copy(outputImage, 0, bitmapData.Scan0, outputImage.Length);
             }
             finally
@@ -151,7 +187,14 @@ namespace EdgeDetection
             return bitmap;
         }
 
-
+        /// <summary>
+        /// Metoda wykrywająca krawędzie w obrazie RGB. Dzieli obraz na grupy pikseli i przetwarza je równolegle.
+        /// </summary>
+        /// <param name="bitmap">Obraz wejściowy.</param>
+        /// <param name="maxThreads">Maksymalna liczba wątków do przetwarzania.</param>
+        /// <param name="chosenDllLibrary">Wybrana biblioteka (0 - C#, 1 - ASM).</param>
+        /// <param name="time">Czas przetwarzania w mikrosekundach.</param>
+        /// <returns>Przetworzony obraz.</returns>
         public Bitmap EdgeDetectorRGBMain(Bitmap bitmap, int maxThreads, byte chosenDllLibrary, ref long time)
         {
             int width = bitmap.Width;
@@ -210,7 +253,11 @@ namespace EdgeDetection
             return resultBitmap;
         }
 
-
+        /// <summary>
+        /// Metoda wywoływana po kliknięciu przycisku Start. Rozpoczyna przetwarzanie obrazu.
+        /// </summary>
+        /// <param name="sender">Obiekt wywołujący zdarzenie.</param>
+        /// <param name="e">Argumenty zdarzenia.</param>
         private void Start_Button_Click(object sender, EventArgs e)
         {
             if (MyBitmap == null)
@@ -219,19 +266,16 @@ namespace EdgeDetection
                 return;
             }
 
-            byte library = (byte)(CSharpLibrary.Checked ? 0 : 1); // Select library
-            int maxThreads = comboBox1.SelectedItem is int threads ? threads : Environment.ProcessorCount; // Ensure valid thread count
+            byte library = (byte)(CSharpLibrary.Checked ? 0 : 1); // Wybór biblioteki
+            int maxThreads = comboBox1.SelectedItem is int threads ? threads : Environment.ProcessorCount; // Liczba wątków
 
             try
             {
-                // Create a deep copy of the bitmap to avoid corrupting the original
-                Bitmap tempBitmap = (Bitmap)MyBitmap.Clone();
+                Bitmap tempBitmap = (Bitmap)MyBitmap.Clone(); // Kopia obrazu
 
                 long processingTime = 0;
-                // Bitmap processedImage = EdgeDetectorRGBMain(tempBitmap, maxThreads, library, ref processingTime);
                 Bitmap processedImage = EdgeDetectorMain(tempBitmap, maxThreads, library, ref processingTime);
 
-                // No need to restore MyBitmap since it was never modified
                 label5.Text = processingTime + " µs";
                 ConvertedPictureBox.Image = processedImage;
                 ConvertedPictureBox.SizeMode = PictureBoxSizeMode.Zoom;
@@ -242,6 +286,11 @@ namespace EdgeDetection
             }
         }
 
+        /// <summary>
+        /// Metoda wywoływana po kliknięciu przycisku Import. Ładuje obraz z pliku.
+        /// </summary>
+        /// <param name="sender">Obiekt wywołujący zdarzenie.</param>
+        /// <param name="e">Argumenty zdarzenia.</param>
         private void Import_Button_Click(object sender, EventArgs e)
         {
             openFileDialog1.InitialDirectory = @"C:\";
@@ -253,7 +302,7 @@ namespace EdgeDetection
                 {
                     var fileStream = openFileDialog1.OpenFile();
 
-                    MyBitmap?.Dispose(); // Dispose previous image if exists
+                    MyBitmap?.Dispose(); // Zwolnienie poprzedniego obrazu
 
                     MyBitmap = new Bitmap(fileStream);
                     ImportPictureBox.Image = MyBitmap;
@@ -266,6 +315,11 @@ namespace EdgeDetection
             }
         }
 
+        /// <summary>
+        /// Metoda wywoływana po kliknięciu przycisku Save. Zapisuje przetworzony obraz do pliku.
+        /// </summary>
+        /// <param name="sender">Obiekt wywołujący zdarzenie.</param>
+        /// <param name="e">Argumenty zdarzenia.</param>
         private void Save_Button_Click(object sender, EventArgs e)
         {
             SaveFileDialog saveDialog = new SaveFileDialog
@@ -287,6 +341,11 @@ namespace EdgeDetection
             }
         }
 
+        /// <summary>
+        /// Metoda wywoływana po kliknięciu przycisku Test. Przeprowadza testy wydajnościowe dla różnych liczby wątków.
+        /// </summary>
+        /// <param name="sender">Obiekt wywołujący zdarzenie.</param>
+        /// <param name="e">Argumenty zdarzenia.</param>
         private void TestProgramButton_Click(object sender, EventArgs e)
         {
             if (MyBitmap == null)
@@ -297,43 +356,36 @@ namespace EdgeDetection
 
             var testResults = new List<(int ThreadCount, long TimeForCS, long TimeForASM)>();
 
-            //int maxThreads = Environment.ProcessorCount;
             int maxThreads = 64;
-
             const int iterations = 5;
 
             ImgConvProgressBar.Minimum = 0;
-            ImgConvProgressBar.Maximum = maxThreads * iterations * 2; // Total test iterations
+            ImgConvProgressBar.Maximum = maxThreads * iterations * 2; // Całkowita liczba iteracji
             ImgConvProgressBar.Value = 0;
 
-            // Test for each thread count
             for (int threadCount = 1; threadCount <= maxThreads; threadCount++)
             {
                 long totalTimeCS = 0;
                 long totalTimeASM = 0;
 
-                // Test C# implementation
+                // Testowanie implementacji C#
                 for (int i = 1; i < iterations + 1; i++)
                 {
                     long timeCS = 0;
-                    //EdgeDetectorRGBMain(MyBitmap, threadCount, 0, ref timeCS); // 0 = C#
-                    EdgeDetectorMain(MyBitmap, threadCount, 0, ref timeCS); // 0 = C#
+                    EdgeDetectorMain(MyBitmap, threadCount, 0, ref timeCS); // 0 - C#
                     totalTimeCS += timeCS;
 
                     System.Threading.Thread.Sleep(50);
 
                     ImgConvProgressBar.Value++;
                     Application.DoEvents();
-
-
                 }
 
-                // Test Assembly implementation
+                // Testowanie implementacji ASM
                 for (int i = 1; i < iterations + 1; i++)
                 {
                     long timeASM = 0;
-                    //EdgeDetectorRGBMain(MyBitmap, threadCount, 1, ref timeASM); // 1 = ASM
-                    EdgeDetectorMain(MyBitmap, threadCount, 1, ref timeASM); // 1 = ASM
+                    EdgeDetectorMain(MyBitmap, threadCount, 1, ref timeASM); // 1 - ASM
                     totalTimeASM += timeASM;
 
                     System.Threading.Thread.Sleep(50);
@@ -342,57 +394,59 @@ namespace EdgeDetection
                     Application.DoEvents();
                 }
 
-                // Calculate average time
                 long avgTimeCS = totalTimeCS / iterations;
                 long avgTimeASM = totalTimeASM / iterations;
 
                 testResults.Add((threadCount, avgTimeCS, avgTimeASM));
             }
 
-            // Write results to an Excel file
-            WriteResultsToExcel(testResults);
+            WriteResultsToExcel(testResults); // Zapis wyników do Excela
 
             MessageBox.Show("Testing completed. Results saved to Excel.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
+        /// <summary>
+        /// Metoda zapisująca wyniki testów wydajnościowych do pliku Excel.
+        /// </summary>
+        /// <param name="results">Lista wyników testów zawierająca liczbę wątków, czas wykonania dla C# i czas wykonania dla ASM.</param>
         private void WriteResultsToExcel(List<(int ThreadCount, long TimeForCS, long TimeForASM)> results)
         {
-            // Create a new Excel application
+            // Tworzenie nowej aplikacji Excel
             var excelApp = new Microsoft.Office.Interop.Excel.Application();
-            excelApp.Visible = false;
-            var workbook = excelApp.Workbooks.Add();
-            var worksheet = (Microsoft.Office.Interop.Excel.Worksheet)workbook.Sheets[1];
+            excelApp.Visible = false; // Ukrycie aplikacji Excel
+            var workbook = excelApp.Workbooks.Add(); // Dodanie nowego skoroszytu
+            var worksheet = (Microsoft.Office.Interop.Excel.Worksheet)workbook.Sheets[1]; // Pobranie pierwszego arkusza
 
-            worksheet.Cells[1, 1] = "Thread Count";
-            worksheet.Cells[1, 2] = "Time for C# (µs)";
-            worksheet.Cells[1, 3] = "Time for Assembly (µs)";
+            // Nagłówki kolumn
+            worksheet.Cells[1, 1] = "Thread Count"; // Liczba wątków
+            worksheet.Cells[1, 2] = "Time for C# (µs)"; // Czas wykonania dla C# w mikrosekundach
+            worksheet.Cells[1, 3] = "Time for Assembly (µs)"; // Czas wykonania dla ASM w mikrosekundach
 
+            // Wypełnianie arkusza danymi
             for (int i = 0; i < results.Count; i++)
             {
-                worksheet.Cells[i + 2, 1] = results[i].ThreadCount;
-                worksheet.Cells[i + 2, 2] = results[i].TimeForCS;
-                worksheet.Cells[i + 2, 3] = results[i].TimeForASM;
+                worksheet.Cells[i + 2, 1] = results[i].ThreadCount; // Liczba wątków
+                worksheet.Cells[i + 2, 2] = results[i].TimeForCS; // Czas dla C#
+                worksheet.Cells[i + 2, 3] = results[i].TimeForASM; // Czas dla ASM
             }
 
-            worksheet.Columns.AutoFit();
+            worksheet.Columns.AutoFit(); // Dostosowanie szerokości kolumn do zawartości
 
-            // Get the current date and format it as part of the filename
+            // Pobranie bieżącej daty i sformatowanie jej jako części nazwy pliku
             string currentDate = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            string fileName = $"EdgeDetectTestResults_{currentDate}.xlsx";
+            string fileName = $"EdgeDetectTestResults_{currentDate}.xlsx"; // Nazwa pliku
 
+            // Ścieżka do zapisu pliku na pulpicie
             string filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), fileName);
-            workbook.SaveAs(filePath);
+            workbook.SaveAs(filePath); // Zapisanie skoroszytu
 
-            workbook.Close();
-            excelApp.Quit();
+            workbook.Close(); // Zamknięcie skoroszytu
+            excelApp.Quit(); // Zamknięcie aplikacji Excel
+
+            // Zwolnienie zasobów COM
             Marshal.ReleaseComObject(worksheet);
             Marshal.ReleaseComObject(workbook);
             Marshal.ReleaseComObject(excelApp);
-        }
-
-        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            int selectedValue = (int)comboBox1.SelectedItem;
         }
     }
 }
