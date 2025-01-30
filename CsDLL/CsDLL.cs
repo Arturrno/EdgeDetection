@@ -25,9 +25,9 @@ namespace CsDLL
         {
             for (int i = 0; i < input.Length; i += 3)
             {
-                byte r = input[i + 2];
+                byte r = input[i];
                 byte g = input[i + 1];
-                byte b = input[i];
+                byte b = input[i + 2];
 
                 byte gray = (byte)(r * 0.3 + g * 0.59 + b * 0.11);
                 output[i] = output[i + 1] = output[i + 2] = gray; // Set grayscale value

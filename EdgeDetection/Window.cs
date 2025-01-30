@@ -20,10 +20,10 @@ namespace EdgeDetection
     public partial class Window : Form
     {
         [DllImport(@"C:\Users\artur\source\repos\EdgeDetection\x64\Debug\AsmDLL.dll")]
-        static extern int EdgeDetect(byte[] redTab, byte[] greenTab, byte[] blueTab, byte[] testTab);
+        static extern int EdgeDetectRGB(byte[] redTab, byte[] greenTab, byte[] blueTab, byte[] testTab);
 
         [DllImport(@"C:\Users\artur\source\repos\EdgeDetection\x64\Debug\AsmDLL.dll")]
-        static extern void EdgeDetect2(byte[] input, byte[] output, int width, int height);
+        static extern void EdgeDetect(byte[] input, byte[] output, int width, int height);
 
         private Bitmap MyBitmap;
 
@@ -65,7 +65,7 @@ namespace EdgeDetection
         // ASM RGB
         public static void EdgeDetectRGB_ASM(byte[] redTab, byte[] greenTab, byte[] blueTab, ref byte[] resultTab)
         {
-            EdgeDetect(redTab, greenTab, blueTab, resultTab);
+            EdgeDetectRGB(redTab, greenTab, blueTab, resultTab);
         }
 
         // C#
@@ -77,7 +77,7 @@ namespace EdgeDetection
         // ASM
         public static void EdgeDetect_ASM(byte[] input, byte[] output, int width, int height)
         {
-            EdgeDetect2(input, output, width, height);
+            EdgeDetect(input, output, width, height);
         }
 
         public Bitmap EdgeDetectorMain(Bitmap bitmap, int maxThreads, byte chosenDllLibrary, ref long time)
@@ -359,7 +359,11 @@ namespace EdgeDetection
 
             worksheet.Columns.AutoFit();
 
-            string filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "EdgeDetectionTestResults.xlsx");
+            // Get the current date and format it as part of the filename
+            string currentDate = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            string fileName = $"EdgeDetectTestResults_{currentDate}.xlsx";
+
+            string filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), fileName);
             workbook.SaveAs(filePath);
 
             workbook.Close();
