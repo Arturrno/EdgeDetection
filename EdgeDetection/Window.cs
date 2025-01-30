@@ -1,4 +1,19 @@
-﻿using System;
+﻿/*************************************************************************************************************
+ *  Temat   :   EdgeDetection - Prosty program do detekcji krawędzi w obrazach,
+ *              udało mi się zaimplementować algorytm poszarzania i blurowania w obrazach w języku C# oraz w języku asemblera.
+ *  Autor   :   Artur Szaboń
+ *  Opis    :   Program pozwala na wczytanie obrazu w formacie .bmp, a następnie przetworzenie go za pomocą algorytmu przekształcenia
+ *              na odcienie szarości, poprzez przemnożenie wartości pikseli przez odpowiednie wagi. Następnie obraz jest rozmywany
+ *              poprzez wzięcie średniej z 4 sąsiadujących pikseli oraz piksela centralnego. Wynikowy obraz jest wyświetlany w oknie.
+ *  Wersja  :   V0.5 - implementacja działającego blura w C# oraz w ASM
+ *              V0.4 - próby dodania algorytmu blurowania w ASM, dodanie nowego algorytmu w C#
+ *              V0.3 - zamiana algorytmu wektorowego na algorytm obsługujący pojedyńcze piksele aby dodać blur, dodanie zapisu wyniku do pliku Excel
+ *              V0.2 - dodanie obsługi wielowątkowości, dodanie obsługi bibliotek DLL, dodanie algorytmu w C#, modyfikacja interfejsu
+ *              V0.1 - stworzenie projektu i dodanie bibliotek DLL, implementacja algorytmu wektorowego w ASM, stworzenie prostego interfejsu
+ *************************************************************************************************************/
+
+
+using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -10,14 +25,6 @@ using System.Diagnostics;
 using System.Collections.Generic;
 using CsDLL;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
-
-// TODO:
-// change parsing 8-bit groups to parsing bigger parts of image for blur to work???
-// implement working blur
-// threads up to 64
-// from 2 to 6
-// send project files
-
 
 namespace EdgeDetection
 {
@@ -290,7 +297,8 @@ namespace EdgeDetection
 
             var testResults = new List<(int ThreadCount, long TimeForCS, long TimeForASM)>();
 
-            int maxThreads = Environment.ProcessorCount;
+            //int maxThreads = Environment.ProcessorCount;
+            int maxThreads = 64;
 
             const int iterations = 5;
 
@@ -305,7 +313,7 @@ namespace EdgeDetection
                 long totalTimeASM = 0;
 
                 // Test C# implementation
-                for (int i = 0; i < iterations; i++)
+                for (int i = 1; i < iterations + 1; i++)
                 {
                     long timeCS = 0;
                     //EdgeDetectorRGBMain(MyBitmap, threadCount, 0, ref timeCS); // 0 = C#
@@ -321,7 +329,7 @@ namespace EdgeDetection
                 }
 
                 // Test Assembly implementation
-                for (int i = 0; i < iterations; i++)
+                for (int i = 1; i < iterations + 1; i++)
                 {
                     long timeASM = 0;
                     //EdgeDetectorRGBMain(MyBitmap, threadCount, 1, ref timeASM); // 1 = ASM

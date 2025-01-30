@@ -146,6 +146,11 @@ Grayscale:
         mov byte ptr [rdx + rax + 1], r10b      ; G
         mov byte ptr [rdx + rax + 2], r10b      ; B
 
+        ; Store grayscale value in output buffer
+        mov byte ptr [rcx + rax], r10b          ; R
+        mov byte ptr [rcx + rax + 1], r10b      ; G
+        mov byte ptr [rcx + rax + 2], r10b      ; B
+
         ; Move to next pixel
         add rax, 3
         jmp processLoop
